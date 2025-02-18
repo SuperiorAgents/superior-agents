@@ -1,6 +1,7 @@
 # Table of Contents
 - [Superior Agent](#superior-agent)
     - [Features](#features)
+    - [Gitbook Documentation](#gitbook-documentation)
 - [Installation](#installation)
     - [Requirements](#requirements)
     - [Agent-side](#agent-side)
@@ -33,6 +34,10 @@ This project is a trading and marketing agent that interacts with various APIs t
 - Promote (or FUD) – Influence market sentiment to their advantage.
 - Assess their own performance – Measure profitability and adapt.
 - Self-improve daily – Learn from successes and failures, refining strategies over time.
+
+## GitBook Documentation
+
+For a comprehensive guide to the Superior Agent Framework, please visit our [GitBook Documentation](https://superioragents.gitbook.io/superior-agents-documents/).
 
 # Installation
 
