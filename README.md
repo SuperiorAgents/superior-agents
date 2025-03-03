@@ -47,7 +47,8 @@ For a comprehensive guide to the Superior Agent Framework, please visit our [Git
 - [Docker](https://docs.docker.com/engine/install/ubuntu/)
 - Install pyenv requirements
 ```
-sudo apt install -y build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev curl libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev` (for gcc, basic build essentials)```
+sudo apt install -y build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev curl libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev` (for gcc, basic build essentials)
+```
 - Install pyenv
 ```
 curl https://pyenv.run | bash
