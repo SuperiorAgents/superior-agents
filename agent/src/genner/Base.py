@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import List, Tuple
+from typing import Callable, List, Tuple
 
-from loguru import logger
 from ollama import ChatResponse, chat
 from result import Err, Ok, Result
 
@@ -12,38 +11,70 @@ from src.types import ChatHistory
 
 
 class Genner(ABC):
-	def __init__(self, identifier: str):
+	def __init__(self, identifier: str, do_stream: bool):
+		"""
+		Initialize the base generator class.
+		
+		This constructor sets up the base generator with an identifier
+		and streaming configuration.
+		
+		Args:
+			identifier (str): Unique identifier for this generator
+			do_stream (bool): Whether to stream responses or not
+		"""
 		self.identifier = identifier
+		self.do_stream = do_stream
 
 	@abstractmethod
 	def ch_completion(self, messages: ChatHistory) -> Result[str, str]:
-		"""Generate a single strategy based on the current chat history.
+		"""
+		Generate a single completion (strategy) based on the current chat history.
+
+		This abstract method should be implemented by subclasses to handle
+		the generation of text completions using different LLM backends.
 
 		Args:
-			messages (ChatHistory): Chat history
+			messages (ChatHistory): Chat history containing the conversation context
 
-		Return:
-			Ok(str): The raw response
-			Err(str): The error message
+		Returns:
+			Result[str, str]: 
+				Ok(str): The raw response text if successful
+				Err(str): The error message if generation failed
 		"""
 		pass
+
+	def set_do_stream(self, final_state: bool):
+		"""
+		Set the streaming state of the generator.
+		
+		This method enables or disables streaming of responses.
+		
+		Args:
+			final_state (bool): Whether to enable streaming (True) or disable it (False)
+		"""
+		self.do_stream = final_state
 
 	@abstractmethod
 	def generate_code(
 		self, messages: ChatHistory, blocks: List[str] = [""]
 	) -> Result[Tuple[List[str], str], str]:
-		"""Generate a single strategy based on the current chat history.
+		"""
+		Generate code (a single strategy) based on the current chat history.
+
+		This abstract method should be implemented by subclasses to handle
+		the generation of code using different LLM backends. It processes
+		the chat history and extracts code from the response.
 
 		Args:
-			messages (ChatHistory): Chat history
-			blocks: (List(str)): Will extract inside of the XML tag first before processing it into code
+			messages (ChatHistory): Chat history containing the conversation context
+			blocks (List[str]): XML tag names to extract content from before processing into code
 
 		Returns:
-			Ok:
-				str: Processed code
-				str: Raw response
-			Err:
-				List[str]: List of error messages
+			Result[Tuple[List[str], str], str]:
+				Ok(Tuple[List[str], str]): Tuple containing:
+					- List[str]: Processed code blocks
+					- str: Raw response from the model
+				Err(str): Error message if generation failed
 		"""
 		pass
 
@@ -51,18 +82,23 @@ class Genner(ABC):
 	def generate_list(
 		self, messages: ChatHistory, blocks: List[str] = [""]
 	) -> Result[Tuple[List[List[str]], str], str]:
-		"""Generate a list of strategies based on the current chat history.
+		"""
+		Generate a list of items based on the current chat history.
+
+		This abstract method should be implemented by subclasses to handle
+		the generation of structured lists using different LLM backends.
+		It processes the chat history and extracts lists from the response.
 
 		Args:
-			messages (ChatHistory): Chat history
-			blocks: (List(str)): Will extract inside of the XML tag first before processing it into list
+			messages (ChatHistory): Chat history containing the conversation context
+			blocks (List[str]): XML tag names to extract content from before processing into lists
 
 		Returns:
-			Ok:
-				List[str]: Processed list
-				str: Raw response
-			Err:
-				List[str]: List of error messages
+			Result[Tuple[List[List[str]], str], str]:
+				Ok(Tuple[List[List[str]], str]): Tuple containing:
+					- List[List[str]]: Processed lists of items
+					- str: Raw response from the model
+				Err(str): Error message if generation failed
 		"""
 		pass
 
@@ -70,17 +106,21 @@ class Genner(ABC):
 	def extract_code(
 		self, response: str, blocks: List[str] = []
 	) -> Result[List[str], str]:
-		"""Extract the code from the response.
+		"""
+		Extract code blocks from a model response.
+
+		This abstract method should be implemented by subclasses to handle
+		the extraction of code blocks from raw model responses, typically
+		using regex patterns to find code within markdown code blocks.
 
 		Args:
-			response (str): The raw response
-			blocks: (List(str)): Will extract inside of the XML tag first before processing it into code
+			response (str): The raw response from the model
+			blocks (List[str]): XML tag names to extract content from before processing into code
 
 		Returns:
-			Ok:
-				List[str]: Processed code
-			Err:
-				List[str]: List of error messages
+			Result[List[str], str]:
+				Ok(List[str]): List of extracted code blocks
+				Err(str): Error message if extraction failed
 		"""
 		pass
 
@@ -88,32 +128,83 @@ class Genner(ABC):
 	def extract_list(
 		self, response: str, block_name: List[str] = []
 	) -> Result[List[List[str]], str]:
-		"""Extract a list of strategies from the response.
+		"""
+		Extract lists from a model response.
+
+		This abstract method should be implemented by subclasses to handle
+		the extraction of structured lists from raw model responses, typically
+		using regex patterns to find YAML content within markdown code blocks.
 
 		Args:
-			response (str): The raw response
-			blocks: (List(str)): Will extract inside of the XML tag first before processing it into list
+			response (str): The raw response from the model
+			block_name (List[str]): XML tag names to extract content from before processing into lists
 
 		Returns:
-			Ok:
-				List[str]: List of strategies
-			Err:
-				str: List of error messages
+			Result[List[List[str]], str]:
+				Ok(List[List[str]]): List of extracted lists
+				Err(str): Error message if extraction failed
 		"""
 		pass
 
 
 class OllamaGenner(Genner):
-	def __init__(self, config: OllamaConfig, identifier: str):
-		super().__init__(identifier)
+	def __init__(
+		self,
+		config: OllamaConfig,
+		identifier: str,
+		stream_fn: Callable[[str], None] | None,
+	):
+		"""
+		Initialize the Ollama-based generator.
+		
+		This constructor sets up the generator with Ollama configuration
+		and streaming function.
+		
+		Args:
+			config (OllamaConfig): Configuration for the Ollama model
+			identifier (str): Unique identifier for this generator
+			stream_fn (Callable[[str], None] | None): Function to call with streamed tokens,
+				or None to disable streaming
+		"""
+		super().__init__(identifier, True if stream_fn else False)
 
 		self.config = config
+		self.stream_fn = stream_fn
 
 	def ch_completion(self, messages: ChatHistory) -> Result[str, str]:
+		"""
+		Generate a completion using the Ollama API.
+		
+		This method sends the chat history to the Ollama API and retrieves
+		a completion response, with optional streaming support.
+		
+		Args:
+			messages (ChatHistory): Chat history containing the conversation context
+			
+		Returns:
+			Result[str, str]:
+				Ok(str): The generated text if successful
+				Err(str): Error message if the API call fails
+		"""
+		final_response = ""
 		try:
-			response: ChatResponse = chat(self.config.model, messages.as_native())
+			assert self.config.model is not None, "Model name is not provided"
 
-			assert response.message.content is not None, "No content in the response"
+			if self.do_stream:
+				assert self.stream_fn is not None
+
+				for chunk in chat(self.config.model, messages.as_native(), stream=True):
+					if chunk["message"] and chunk["message"]["content"]:
+						token = chunk["message"]["content"]
+						self.stream_fn(token)
+						final_response += token
+			else:
+				response: ChatResponse = chat(self.config.model, messages.as_native())
+				assert (
+					response.message.content is not None
+				), "No content in the response"
+
+				final_response = response.message.content
 		except AssertionError as e:
 			return Err(
 				f"OllamaGenner.ch_completion: response.message.content is None: {e}"
@@ -123,11 +214,29 @@ class OllamaGenner(Genner):
 				f"An unexpected Ollama error while generating code with {self.config.name}, raw response: {response} occured: \n{e}"
 			)
 
-		return Ok(response.message.content)
+		return Ok(final_response)
 
 	def generate_code(
 		self, messages: ChatHistory, blocks: List[str] = [""]
 	) -> Result[Tuple[List[str], str], str]:
+		"""
+		Generate code using the Ollama API.
+		
+		This method handles the complete process of generating code:
+		1. Getting a completion from the model
+		2. Extracting code blocks from the response
+		
+		Args:
+			messages (ChatHistory): Chat history containing the conversation context
+			blocks (List[str]): XML tag names to extract content from before processing into code
+			
+		Returns:
+			Result[Tuple[List[str], str], str]:
+				Ok(Tuple[List[str], str]): Tuple containing:
+					- List[str]: Processed code blocks
+					- str: Raw response from the model
+				Err(str): Error message if generation failed
+		"""
 		try:
 			completion_result = self.ch_completion(messages)
 
@@ -156,6 +265,24 @@ class OllamaGenner(Genner):
 	def generate_list(
 		self, messages: ChatHistory, blocks: List[str] = [""]
 	) -> Result[Tuple[List[List[str]], str], str]:
+		"""
+		Generate lists using the Ollama API.
+		
+		This method handles the complete process of generating structured lists:
+		1. Getting a completion from the model
+		2. Extracting lists from the response
+		
+		Args:
+			messages (ChatHistory): Chat history containing the conversation context
+			blocks (List[str]): XML tag names to extract content from before processing into lists
+			
+		Returns:
+			Result[Tuple[List[List[str]], str], str]:
+				Ok(Tuple[List[List[str]], str]): Tuple containing:
+					- List[List[str]]: Processed lists of items
+					- str: Raw response from the model
+				Err(str): Error message if generation failed
+		"""
 		try:
 			completion_result = self.ch_completion(messages)
 

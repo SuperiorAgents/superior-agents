@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Stats Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .chart-container {
+            height: 300px;
+            margin: 20px 0;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="container">
+        <div class="card">
+            <h1>Memory Statistics Monitor</h1>
+            <div class="grid">
+                <div class="chart-container">
+                    <canvas id="heapUsedChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <canvas id="heapTotalChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <canvas id="rssChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize charts
+        const chartConfig = {
+            type: 'line',
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'second'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'MB'
+                        }
+                    }
+                },
+                animation: {
+                    duration: 0 // Disable animation for better performance
+                }
+            }
+        };
+
+        const heapUsedChart = new Chart(document.getElementById('heapUsedChart'), {
+            ...chartConfig,
+            data: {
+                datasets: [{
+                    label: 'Heap Used',
+                    borderColor: '#4CAF50',
+                    data: [],
+                    tension: 0.1
+                }]
+            }
+        });
+
+        const heapTotalChart = new Chart(document.getElementById('heapTotalChart'), {
+            ...chartConfig,
+            data: {
+                datasets: [{
+                    label: 'Heap Total',
+                    borderColor: '#2196F3',
+                    data: [],
+                    tension: 0.1
+                }]
+            }
+        });
+
+        const rssChart = new Chart(document.getElementById('rssChart'), {
+            ...chartConfig,
+            data: {
+                datasets: [{
+                    label: 'RSS',
+                    borderColor: '#ff5722',
+                    data: [],
+                    tension: 0.1
+                }]
+            }
+        });
+
+        // SSE connection for memory stats
+        const eventSource = new EventSource('/memory-stats');
+
+        eventSource.addEventListener('update', (event) => {
+            const stats = JSON.parse(event.data);
+            const timestamp = new Date(stats.timestamp);
+            const MB = (bytes) => (bytes / (1024 * 1024)).toFixed(2);
+
+            function addData(chart, value) {
+                chart.data.datasets[0].data.push({
+                    x: timestamp,
+                    y: parseFloat(MB(value))
+                });
+                if (chart.data.datasets[0].data.length > 50) {
+                    chart.data.datasets[0].data.shift();
+                }
+                chart.update('none');
+            }
+
+            addData(heapUsedChart, stats.heapUsed);
+            addData(heapTotalChart, stats.heapTotal);
+            addData(rssChart, stats.rss);
+        });
+
+        eventSource.onerror = (err) => {
+            console.error('EventSource failed:', err);
+            // Adding reconnection logic
+            setTimeout(() => {
+                console.log('Attempting to reconnect...');
+                eventSource.close();
+                location.reload();
+            }, 5000);
+        };
+    </script>
+</body>
+</html>

@@ -8,9 +8,8 @@ import asyncio
 from dotenv import load_dotenv
 import logging
 
-from models import NotificationCreate, NotificationUpdate, NotificationGet, NotificationResponse
-from notification_manager import NotificationManager
-from client import NotificationClient
+from models import NotificationCreate, NotificationUpdate, NotificationGet, NotificationResponse, NotificationBatchCreate
+from notification_database_manager import NotificationDatabaseManager
 from scrapers import (
     TwitterMentionsScraper,
     TwitterFeedScraper,
@@ -45,9 +44,8 @@ app.add_middleware(
 )
 
 # Initialize components
-notification_manager = NotificationManager()
-notification_client = NotificationClient()
-scraper_manager = ScraperManager(notification_client)
+notification_manager = NotificationDatabaseManager()
+scraper_manager = ScraperManager(notification_manager)
 
 # Initialize scrapers based on available credentials
 try:
@@ -146,13 +144,26 @@ async def create_notification(
     await verify_api_key(x_api_key)
     
     try:
-        notification_id = notification_manager.create_notification(notification)
+        notification_id = await notification_manager.create_notification(
+            source=notification.source,
+            short_desc=notification.short_desc,
+            long_desc=notification.long_desc,
+            notification_date=notification.notification_date,
+            relative_to_scraper_id=notification.relative_to_scraper_id,
+            bot_username=notification.bot_username
+        )
         return {
             "status": "success",
-            "notification_id": notification_id
+            "data": {
+                "notification_id": notification_id
+            }
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error creating notification: {str(e)}")
+        return {
+            "status": "error",
+            "msg": str(e)
+        }
 
 @app.post("/api_v1/notification/update")
 async def update_notification(
@@ -163,13 +174,20 @@ async def update_notification(
     await verify_api_key(x_api_key)
     
     try:
-        success = notification_manager.update_notification(notification)
+        success = await notification_manager.update_notification(notification)
         if not success:
-            raise HTTPException(status_code=404, detail="Notification not found")
+            return {
+                "status": "error",
+                "msg": "Notification not found"
+            }
             
         return {"status": "success"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error updating notification: {str(e)}")
+        return {
+            "status": "error",
+            "msg": str(e)
+        }
 
 @app.post("/api_v1/notification/get")
 async def get_notification(
@@ -182,48 +200,127 @@ async def get_notification(
     try:
         # If ID is provided, get specific notification
         if request.id:
-            notification = notification_manager.get_notification(request.id)
+            notification = await notification_manager.get_notification(request.id)
             if not notification:
-                raise HTTPException(status_code=404, detail="Notification not found")
-            return {"status": "success", "notification": notification}
+                return {
+                    "status": "error",
+                    "msg": "Notification not found"
+                }
+            return {
+                "status": "success", 
+                "data": notification
+            }
         
         # If no ID provided, get all notifications
-        notifications = notification_manager.get_all_notifications()
-        return {"status": "success", "notifications": notifications}
+        notifications = await notification_manager.get_all_notifications()
+        return {
+            "status": "success", 
+            "data": notifications
+        }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error getting notification(s): {str(e)}")
+        return {
+            "status": "error",
+            "msg": str(e)
+        }
 
 @app.get("/notifications/{agent_type}/pending")
 async def get_pending_notifications(agent_type: str):
     """Get pending notifications for a specific agent type."""
     try:
-        notifications = notification_manager.get_pending_notifications(agent_type)
-        return {"notifications": [n.dict() for n in notifications]}
+        # For now, just return all notifications
+        notifications = await notification_manager.get_all_notifications()
+        return {"notifications": notifications}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error getting pending notifications: {str(e)}")
+        return {
+            "status": "error",
+            "msg": str(e)
+        }
 
 @app.post("/notifications/{notification_id}/processed")
 async def mark_notification_processed(notification_id: str, result: Optional[dict] = None):
     """Mark a notification as processed."""
     try:
-        notification_manager.mark_notification_processed(notification_id, result)
-        return {"status": "success"}
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        # Update the notification with processed status
+        success = await notification_manager.update_notification({
+            "notification_id": notification_id,
+            "processed": True,
+            "processed_at": datetime.utcnow().isoformat(),
+            "result": result
+        })
+        if success:
+            return {"status": "success"}
+        else:
+            return {
+                "status": "error",
+                "msg": "Notification not found or could not be updated"
+            }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error marking notification as processed: {str(e)}")
+        return {
+            "status": "error",
+            "msg": str(e)
+        }
 
 @app.get("/notifications/{notification_id}/status")
 async def get_notification_status(notification_id: str):
     """Get the status of a specific notification."""
     try:
-        status = notification_manager.get_notification_status(notification_id)
-        return status
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        notification = await notification_manager.get_notification(notification_id)
+        if notification:
+            return {
+                "status": "success",
+                "data": {
+                    "notification_id": notification_id,
+                    "processed": getattr(notification, "processed", False),
+                    "processed_at": getattr(notification, "processed_at", None),
+                    "created_at": notification.created
+                }
+            }
+        else:
+            return {
+                "status": "error",
+                "msg": "Notification not found"
+            }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error getting notification status: {str(e)}")
+        return {
+            "status": "error",
+            "msg": str(e)
+        }
+
+@app.post("/api_v1/notification/create_batch")
+async def create_notifications_batch(
+    batch: NotificationBatchCreate,
+    x_api_key: str = Header(...)
+):
+    """
+    Create multiple notifications in a single batch request.
+    
+    Args:
+        batch: Batch of notifications to create
+    """
+    await verify_api_key(x_api_key)
+    
+    try:
+        # Convert Pydantic models to dictionaries
+        notifications = [notification.dict() for notification in batch.notifications]
+        
+        notification_ids = await notification_manager.create_notifications_batch(notifications)
+        return {
+            "status": "success",
+            "data": {
+                "notification_ids": notification_ids
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error creating notifications batch: {str(e)}")
+        return {
+            "status": "error",
+            "msg": str(e)
+        }
 
 # Scraper control endpoints
 @app.post("/scrapers/run")

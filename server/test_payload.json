@@ -1,0 +1,41 @@
+{
+    "agent_name": "test",
+    "model": "claude",
+    "research_tools": [],
+    "agent_id": "c4be3201-6817-4390-9398-eef3aecd5640",
+    "prompts": [
+        {
+            "name": "system_prompt",
+            "prompt": "{personality}\nSneed\n<Portfolio>\n{portfolio_str}\n</Portfolio>\nSneed:\n<Strategy>\n{strategy_str}\n</Strategy>\nSay sneed"
+        },
+        {
+            "name": "research_code_prompt",
+            "prompt": "Sneed\n<Portfolio>\n{portfolio}\n</Portfolio>\nSneed\n<APIs>\n{apis_str}\n</APIs>\nPlease write code that generates sneed\n```python\nfrom dotenv import load_dotenv\nimport ...\n\nload_dotenv()\n\ndef main():\n    ....\n\nmain()\n```"
+        },
+        {
+            "name": "research_code_on_notif_prompt",
+            "prompt": "Sneed\n<Notification>\n{notification}\n</Notification>\nSneed\n<Portfolio>\n{portfolio}\n</Portfolio>\nAnd access to these API keys:\n<APIs>\n{apis_str}\n</APIs>\nWhere this is your current strategy:\n<Strategy>\n{strategy}\n</Strategy>\nPlease write code like the format below to use your resources to research the state of the market and how to respond.\n```python\nfrom dotenv import load_dotenv\nimport ...\n\nload_dotenv()\n\ndef main():\n    ....\n\nmain()\n```"
+        },
+        {
+            "name": "strategy_prompt",
+            "prompt": "Sneed\n<Portfolio>\n{portfolio}\n</Portfolio>\nSneed\n<Research>\n{research}\n</Research>\nReason to sneed."
+        },
+        {
+            "name": "address_research_code_prompt",
+            "prompt": "Sneed, generate a code that prints `sneed`\n```python\nfrom dotenv import load_dotenv\nimport ...\n\nload_dotenv()\n\ndef main():\n    ....\n\nmain()\n```\nSneed"
+        },
+        {
+            "name": "trading_code_prompt",
+            "prompt": "Sneed\n<Addresses>\n{address_research}\n</Addresses>\nSneed\n```python\nfrom dotenv import load_dotenv\nimport ...\n\ndef main():\n    ....\n\nmain()\n```\nGenerate a code that prints sneed"
+        },
+        {
+            "name": "regen_code_prompt",
+            "prompt": "Given these errors:\n<Errors>\n{errors}\n</Errors>\nAnd the code it's from:\n<Code>\n{previous_code}\n</Code>\nYou are to generate code that fixes the error but doesn't stray too much from the original code, in this format.\n```python\nfrom dotenv import load_dotenv\nimport ...\n\nload_dotenv()\n\ndef main():\n    ....\n\nmain()\n```\nPlease generate the code."
+        }
+    ],
+    "agent_type": "trading",
+    "trading_instruments": [
+        "spot",
+        "defi"
+    ]
+}

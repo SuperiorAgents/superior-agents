@@ -1,3 +1,4 @@
+# Superior Agents
 # Table of Contents
 - [Superior Agent](#superior-agent)
     - [Features](#features)

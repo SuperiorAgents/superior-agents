@@ -1,8 +1,13 @@
+# testing files
+test_rss_scraper.py
+
 # Virtual Environment
 venv/
 env/
 ENV/
 notification-venv/
+
+.DS_Store
 
 # for open source don't include vault
 vault_service.py

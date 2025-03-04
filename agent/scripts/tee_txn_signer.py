@@ -1,13 +1,15 @@
 import os
 import requests
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings
 from web3 import Web3, Account
 from retry import retry
 from typing import Optional
+from db import update_agent_session as db
+from decimal import Decimal
 
 load_dotenv()
 
@@ -30,7 +32,13 @@ class RateLimitException(Exception):
 		super().__init__(self.message)
 
 
-app = FastAPI()
+app = FastAPI(
+    title="Token Swap API",
+    description="API for swapping tokens using 1inch protocol with TEE transaction signing",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
 web3 = Web3(
 	Web3.HTTPProvider(
 		f"https://eth-mainnet.g.alchemy.com/v2/cR5K5OtFcvSLttJ5OQIcRNyd0ZBJpwnF"
@@ -38,14 +46,52 @@ web3 = Web3(
 )
 
 
+def is_numeric(string: str) -> bool:
+    try:
+        float(string)
+        return True
+    except ValueError:
+        return False
+
+def get_token_decimals(token_address: str) -> int:
+    """Get the number of decimals for an ERC20 token"""
+    # ERC20 ABI for decimals function
+    abi = [{"constant":True,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"payable":False,"stateMutability":"view","type":"function"}]
+    
+    # Create contract instance
+    token_contract = web3.eth.contract(address=Web3.to_checksum_address(token_address), abi=abi)
+    
+    # Get decimals
+    try:
+        decimals = token_contract.functions.decimals().call()
+        return decimals
+    except Exception as e:
+        # Default to 18 decimals if call fails
+        return 18
+
+def scale_amount_with_decimals(amount: str, decimals: int) -> int:
+    """Scale the amount with token decimals"""
+    # Convert amount to Decimal for precise calculation
+    amount_decimal = Decimal(amount)
+    # Multiply by 10^decimals
+    scaled_amount = amount_decimal * (Decimal('10') ** decimals)
+    # Return as integer
+    return int(scaled_amount)
+
 # API Models
 class SwapRequest(BaseModel):
-	token_in: str = Field(..., description="Input token address")
-	token_out: str = Field(..., description="Output token address")
-	amount_in: str = Field(..., description="Input amount in smallest denomination")
-	slippage: float = Field(0.5, description="Slippage tolerance in percentage")
+	token_in: str = Field(..., description="Input token address", examples=["0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"])
+	token_out: str = Field(..., description="Output token address", examples=["0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"])
+	amount_in: str = Field(..., description="Input amount in smallest denomination", examples=["10,5", "10"])
+	slippage: float = Field(0.5, description="Slippage tolerance in percentage", examples=["0.5", "0"])
 	# deadline_minutes: int = Field(20, description="Transaction deadline in minutes")
 
+	@field_validator("amount_in")
+	@classmethod
+	def validate_amount_in(cls, v: str) -> str:
+		if not is_numeric(v):
+			raise ValueError("amount_in must be a number")
+		return v
 
 class SwapResponse(BaseModel):
 	transaction_hash: Optional[str]
@@ -90,7 +136,6 @@ def use_nonce(address):
 def apiRequestUrl(methodName, queryParams):
 	return f"https://api.1inch.dev/swap/v6.0/1/{methodName}?{'&'.join([f'{key}={value}' for key, value in queryParams.items()])}"
 
-
 @retry(RateLimitException, delay=1)
 def check_allowance(tokenAddress, walletAddress):
 	url = apiRequestUrl(
@@ -102,6 +147,10 @@ def check_allowance(tokenAddress, walletAddress):
 	)
 	if response.status_code == 429:
 		raise RateLimitException()
+
+	if response.status_code != 200:
+		raise HTTPException(status_code=response.status_code, detail=response.text)
+
 	data = response.json()
 	return data.get("allowance")
 
@@ -124,6 +173,10 @@ def build_approval_tx(
 	)
 	if response.status_code == 429:
 		raise RateLimitException()
+
+	if response.status_code != 200:
+		raise HTTPException(status_code=response.status_code, detail=response.text)
+
 	transaction = response.json()
 	return transaction
 
@@ -149,7 +202,7 @@ def build_swap_tx(request: SwapRequest, address):
 	params = requestOptions.get("params", {})
 
 	response = requests.get(apiUrl, headers=headers, params=params)
-	print("response:", response.text)
+	print("build_swap_tx: response", response.text)
 	if response.status_code == 429:
 		raise RateLimitException()
 
@@ -216,23 +269,40 @@ def build_and_send_transaction(transaction, address):
 
 	return {"transaction_hash": web3.to_hex(tx_hash), "status": "success"}
 
+@app.get("/api/v1/account")
+async def get_account():
+	return {
+		"address": Web3.to_checksum_address(
+			Account.from_key(settings.ETHER_PRIVATE_KEY).address
+		) 
+	}
+
 
 @app.post("/api/v1/swap")
 async def swap_tokens(
+	req : Request,
 	request: SwapRequest,
-	# swapper: UniswapSwapper = Depends(get_swapper)
 ):
+	"""
+	Swap token in for token out
+	With the price being feed at api/v1/quote
+	The differences in slipapge
+	"""
 	address = Web3.to_checksum_address(
 		Account.from_key(settings.ETHER_PRIVATE_KEY).address
 	)
 	allowance = check_allowance(request.token_in, address)
-	print("allowance:", allowance)
-	if int(allowance) < int(request.amount_in):
+	decimals = get_token_decimals(request.token_in)
+	amount_in = scale_amount_with_decimals(request.amount_in, decimals)
+	request.amount_in = amount_in
+	if int(allowance) < amount_in:
 		approval_tx = build_approval_tx(request.token_in, request.amount_in, address)
 		build_and_send_transaction({**approval_tx, "gas": 50_000}, address)
 
 	swap_tx = build_swap_tx(request, address)
+	print(swap_tx)
 	result = build_and_send_transaction(swap_tx, address)
+	db.update_agent_sessions(req.headers.get('x-superior-agent-id'),req.headers.get('x-superior-session-id'))
 	return result
 
 
@@ -255,7 +325,7 @@ def oneInchQuote(request: QuoteRequest):
 
 	response = requests.get(apiUrl, headers=headers, params=params)
 	if response.status_code != 200:
-		print(response.json())
+		print('1inchQuoteerror', response.json())
 		return JSONResponse(status_code=response.status_code, content=response.json())
 
 	response_json = response.json()
@@ -321,8 +391,9 @@ def oneInchQuote(request: QuoteRequest):
 @app.post("/api/v1/quote")
 async def get_quote(
 	request: QuoteRequest,
-	# swapper: UniswapSwapper = Depends(get_swapper)
 ):
+	decimal = get_token_decimals(request.token_in)
+	request.amount_in = scale_amount_with_decimals(request.amount_in, decimal)
 	oneInchQuoteResponse = oneInchQuote(request)
 	# okxQuoteResponse = okxQuote(request)
 	return oneInchQuoteResponse

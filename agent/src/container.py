@@ -15,6 +15,13 @@ from src.helper import timeout
 
 
 class ContainerManager:
+	"""
+	Manages Docker containers for executing code in isolated environments.
+	
+	This class provides functionality to create, access, and interact with Docker containers.
+	It handles container creation if the specified container doesn't exist, and provides
+	methods to write and execute code within the container.
+	"""
 	def __init__(
 		self,
 		client: DockerClient,
@@ -22,6 +29,18 @@ class ContainerManager:
 		host_cache_folder: Path | str,
 		in_con_env: Dict[str, str]
 	):
+		"""
+		Initialize the ContainerManager with Docker client and container settings.
+		
+		Args:
+			client (DockerClient): Docker client instance for container operations
+			container_identifier (str): Name or ID of the container to use
+			host_cache_folder (Path | str): Path to the folder on the host machine for caching files
+			in_con_env (Dict[str, str]): Environment variables to set in the container
+			
+		Raises:
+			ValueError: If the container cannot be found or created, or if the retrieved object is not a Container
+		"""
 		self.client = client
 		self.host_cache_folder = Path(host_cache_folder)
 
@@ -37,7 +56,7 @@ class ContainerManager:
 				logger.info(f"Container not found: {container_identifier}, attempting to create it")
 				try:
 					_container = client.containers.create(
-						image="docker-agent-executor",
+						image="docker-twitter-agent-executor",
 						name=container_identifier,
 						hostname=container_identifier,
 						environment={
@@ -45,7 +64,7 @@ class ContainerManager:
 						},
 						network_mode="host",
 						detach=True,
-						restart_policy={"Name": "unless-stopped"}
+						restart_policy={"Name": "unless-stopped"} # type: ignore
 					)
 					_container.start()
 					logger.info(f"Successfully created and started container: {container_identifier}")
@@ -76,14 +95,16 @@ class ContainerManager:
 
 		Args:
 			code (str): The code to write into the container
-			postfix (str): The type of the agent
-			in_container_path (str): The base path to write the code into
+			postfix (str): The type identifier for the agent, used in the file path
+			in_container_path (str, optional): The base path in the container to write the code to. Defaults to "/".
+			
 		Raises:
-			Exception: If the file does not exist in the container
-
+			Exception: If the file cannot be written to the container or if verification fails
+			
 		Returns:
-			str: The path to the temporary file in the container
-			str: The reflected code
+			Tuple[str, str]: 
+				- The path to the temporary file in the container
+				- The reflected code (content of the file as read from the container)
 		"""
 		# Create temp file name with timestamp
 		current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -147,15 +168,17 @@ class ContainerManager:
 		- Return the exit code, execution output, and reflected code
 
 		Args:
-			code (str): The code to run in the container
-			postfix (str): Prefix of the filename
-
+			code (str): The Python code to run in the container
+			postfix (str): The type identifier for the agent, used in the file path
+			
 		Returns:
-			Ok:
-				str: The execution output
-				str: The reflected code
-			Err:
-				str: Error string
+			Result[Tuple[str, str], str]: 
+				- Ok: A tuple containing (execution_output, reflected_code)
+				- Err: An error message describing what went wrong
+				
+		Note:
+			- The execution has a timeout of 150 seconds
+			- After execution, any remaining Python processes are killed
 		"""
 		temp_file_path, reflected_code = self.write_code_in_con(code, postfix)
 
@@ -176,7 +199,6 @@ class ContainerManager:
 				)
 				python_output_str = python_output.decode("utf-8", errors="replace")
 		except TimeoutError as e:
-			self.container.exec_run(cmd="kill -9 $(pidof python)")
 			return Err(
 				f"ContainerManager.run_code_in_con: Code ran too long, error: \n{e}"
 			)
@@ -185,10 +207,9 @@ class ContainerManager:
 				f"ContainerManager.run_code_in_con: Container error, error: \n{e}"
 			)
 
+		self.container.exec_run(cmd="kill -9 $(pidof python)")
+
 		if python_exit_code != 0:
-			# logger.error(
-			# 	f"ContainerManager.run_code_in_con: Code that has been run failed, program output: \n{python_output_str}"
-			# )
 			return Err(
 				f"ContainerManager.run_code_in_con: Code that has been run failed, program output: \n{python_output_str}"
 			)

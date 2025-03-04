@@ -1,41 +1,137 @@
 import re
-from typing import List, Tuple
+from typing import Callable, Generator, List, Tuple
 
 import yaml
 from loguru import logger
 from openai import OpenAI
+from openai.types.chat import ChatCompletionChunk
 from result import Err, Ok, Result
 
 from src.config import DeepseekConfig
 from src.helper import extract_content
+from src.client.openrouter import OpenRouter
 from src.types import ChatHistory
 
 from .Base import Genner
 
 
 class DeepseekGenner(Genner):
-	def __init__(self, client: OpenAI, config: DeepseekConfig):
-		super().__init__("deepseek")
+	def __init__(
+		self,
+		client: OpenAI | OpenRouter,
+		config: DeepseekConfig,
+		stream_fn: Callable[[str], None] | None,
+	):
+		"""
+		Initialize the Deepseek-based generator.
+		
+		This constructor sets up the generator with Deepseek configuration
+		and streaming function. It supports both OpenAI and OpenRouter clients.
+		
+		Args:
+			client (OpenAI | OpenRouter): OpenAI or OpenRouter API client
+			config (DeepseekConfig): Configuration for the Deepseek model
+			stream_fn (Callable[[str], None] | None): Function to call with streamed tokens,
+				or None to disable streaming
+		"""
+		super().__init__("deepseek", True if stream_fn else False)
 		self.client = client
 		self.config = config
+		self.stream_fn = stream_fn
 
 	def ch_completion(self, messages: ChatHistory) -> Result[str, str]:
-		response = ""
+		"""
+		Generate a completion using the Deepseek model.
+		
+		This method sends the chat history to either the OpenAI API or OpenRouter API
+		(depending on the client type) and retrieves a completion response, with
+		optional streaming support. It handles the differences between the two APIs.
+		
+		Args:
+			messages (ChatHistory): Chat history containing the conversation context
+			
+		Returns:
+			Result[str, str]:
+				Ok(str): The generated text if successful
+				Err(str): Error message if the API call fails
+		"""
+		final_response = ""
 
 		try:
-			response = self.client.chat.completions.create(
-				model=self.config.model,
-				messages=messages.as_native(),  # type: ignore
-				stream=False,
-				max_tokens=self.config.max_tokens
-			)
+			if isinstance(self.client, OpenAI):
+				if self.do_stream:
+					assert self.stream_fn is not None
 
-			final_response = response.choices[0].message.content
+					stream: Generator[ChatCompletionChunk, None, None] = (
+						self.client.chat.completions.create(
+							model=self.config.model,
+							messages=messages.as_native(),  # type: ignore
+							max_tokens=self.config.max_tokens,
+							stream=True,
+						)
+					)
+
+					for chunk in stream:
+						if chunk.choices[0].delta.content is not None:
+							token = chunk.choices[0].delta.content
+
+							if not isinstance(token, str):
+								continue
+
+							final_response += token
+							self.stream_fn(token)
+				else:
+					response = self.client.chat.completions.create(
+						model=self.config.model,
+						messages=messages.as_native(),  # type: ignore
+						max_tokens=self.config.max_tokens,
+						stream=False,
+					)
+
+					final_response = response.choices[0].message.content
+
+				assert isinstance(final_response, str)
+			else:
+				if self.do_stream:
+					assert self.stream_fn is not None
+
+					stream_ = self.client.create_chat_completion_stream(
+						messages=messages.as_native(),
+						model=self.config.model,
+						max_tokens=self.config.max_tokens,
+					)
+
+					reasoning_entered = False
+					main_entered = False
+
+					for token, token_type in stream_:
+						if not reasoning_entered and token_type == "reasoning":
+							reasoning_entered = True
+							self.stream_fn("<think>\n")
+						if (
+							reasoning_entered
+							and not main_entered
+							and token_type == "main"
+						):
+							main_entered = True
+							self.stream_fn("</think>\n")
+						if token_type == "main":
+							final_response += token
+
+						self.stream_fn(token)
+					self.stream_fn("\n")
+				else:
+					final_response = self.client.create_chat_completion(
+						messages=messages.as_native(),
+						model=self.config.model,
+						max_tokens=self.config.max_tokens,
+					)
+				assert isinstance(final_response, str)
 		except AssertionError as e:
 			return Err(f"DeepseekGenner.ch_completion: {e}")
 		except Exception as e:
 			return Err(
-				f"DeepseekGenner.ch_completion: An unexpected error while generating code with {self.config.name}, response: {response} occured: \n{e}"
+				f"DeepseekGenner.ch_completion: An unexpected error while generating code with {self.config}, response: {response} occured: \n{e}"
 			)
 
 		return Ok(final_response)
@@ -43,6 +139,24 @@ class DeepseekGenner(Genner):
 	def generate_code(
 		self, messages: ChatHistory, blocks: List[str] = [""]
 	) -> Result[Tuple[List[str], str], str]:
+		"""
+		Generate code using the Deepseek model.
+		
+		This method handles the complete process of generating code:
+		1. Getting a completion from the model
+		2. Extracting code blocks from the response
+		
+		Args:
+			messages (ChatHistory): Chat history containing the conversation context
+			blocks (List[str]): XML tag names to extract content from before processing into code
+			
+		Returns:
+			Result[Tuple[List[str], str], str]:
+				Ok(Tuple[List[str], str]): Tuple containing:
+					- List[str]: Processed code blocks
+					- str: Raw response from the model
+				Err(str): Error message if generation failed
+		"""
 		try:
 			completion_result = self.ch_completion(messages)
 
@@ -71,6 +185,24 @@ class DeepseekGenner(Genner):
 	def generate_list(
 		self, messages: ChatHistory, blocks: List[str] = [""]
 	) -> Result[Tuple[List[List[str]], str], str]:
+		"""
+		Generate lists using the Deepseek model.
+		
+		This method handles the complete process of generating structured lists:
+		1. Getting a completion from the model
+		2. Extracting lists from the response
+		
+		Args:
+			messages (ChatHistory): Chat history containing the conversation context
+			blocks (List[str]): XML tag names to extract content from before processing into lists
+			
+		Returns:
+			Result[Tuple[List[List[str]], str], str]:
+				Ok(Tuple[List[List[str]], str]): Tuple containing:
+					- List[List[str]]: Processed lists of items
+					- str: Raw response from the model
+				Err(str): Error message if generation failed
+		"""
 		try:
 			completion_result = self.ch_completion(messages)
 
@@ -98,6 +230,21 @@ class DeepseekGenner(Genner):
 
 	@staticmethod
 	def extract_code(response: str, blocks: List[str] = [""]) -> Result[List[str], str]:
+		"""
+		Extract code blocks from a Deepseek model response.
+		
+		This static method extracts Python code blocks from the raw model response
+		using regex patterns to find code within markdown code blocks.
+		
+		Args:
+			response (str): The raw response from the model
+			blocks (List[str]): XML tag names to extract content from before processing into code
+			
+		Returns:
+			Result[List[str], str]:
+				Ok(List[str]): List of extracted code blocks
+				Err(str): Error message if extraction failed
+		"""
 		extracts: List[str] = []
 
 		for block in blocks:
@@ -129,6 +276,21 @@ class DeepseekGenner(Genner):
 	def extract_list(
 		response: str, blocks: List[str] = [""]
 	) -> Result[List[List[str]], str]:
+		"""
+		Extract lists from a Deepseek model response.
+		
+		This static method extracts YAML-formatted lists from the raw model response
+		using regex patterns to find YAML content within markdown code blocks.
+		
+		Args:
+			response (str): The raw response from the model
+			blocks (List[str]): XML tag names to extract content from before processing into lists
+			
+		Returns:
+			Result[List[List[str]], str]:
+				Ok(List[List[str]]): List of extracted lists
+				Err(str): Error message if extraction failed
+		"""
 		extracts: List[List[str]] = []
 
 		for block in blocks:

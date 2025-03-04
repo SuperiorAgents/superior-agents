@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --font-body: "Oxanium", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --primary-color: #826E36;
+}
+
+.dark {
+  --background: #171407; /* Default dark mode background */
+  --foreground: #ededed;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: ##171407;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: #171407;
+  font-family: var(--font-body);
+}
+
+
+html {
+  @apply dark;
+}
