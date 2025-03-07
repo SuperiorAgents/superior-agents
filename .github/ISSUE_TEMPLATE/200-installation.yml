@@ -1,0 +1,99 @@
+name: 🛠️ Installation
+description: Report an issue here when you hit errors during installation.
+title: "[Installation]: "
+labels: ["installation"]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        #### Before submitting an issue, please make sure the issue hasn't been already addressed by searching through [the existing and past issues](https://github.com/SuperiorAgents/superior-agents/issues?q=is%3Aissue%20state%3Aopen%20sort%3Acreated-desc).
+  - type: dropdown
+    attributes:
+      label: Installation Component
+      description: Which part of the installation process are you having issues with?
+      options:
+        - Prerequisites (Python, Docker, pyenv)
+        - Agent-side installation
+        - ABI files configuration
+        - Python Server-side
+        - Environment Variables
+        - Docker Container
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Your current environment
+      description: |
+        Please provide details about your environment:
+        - OS: [e.g. Ubuntu 20.04, Windows 10, macOS]
+        - Python version: [e.g. 3.12.1]
+        - pyenv version (if applicable): [e.g. 2.3.17]
+        - Docker version (if applicable): [e.g. 24.0.6]
+        - docker-compose version (if applicable): [e.g. 2.20.2]
+      placeholder: |
+        OS: 
+        Python version:
+        pyenv version:
+        Docker version:
+        docker-compose version:
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Installation steps attempted
+      description: |
+        Please describe the exact steps you followed during installation.
+      placeholder: |
+        ```sh
+        # List the commands you executed
+        python -m venv agent-venv
+        source agent-venv/bin/activate
+        cd agent
+        pip install -e .
+        ```
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Error message
+      description: |
+        Please paste the full error message or output that shows the issue.
+      placeholder: |
+        ```
+        Paste the complete terminal output here
+        ```
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Configuration details
+      description: |
+        If relevant, please share information about your configuration (with sensitive data redacted).
+      placeholder: |
+        .env file structure (remove sensitive values):
+        ```
+        API_DB_BASE_URL=http://localhost:9020
+        # Other config values...
+        ```
+
+        Or any relevant JSON configuration:
+        ```json
+        {
+          "agent_id": "example_agent",
+          "model": "claude"
+        }
+        ```
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: Additional context
+      description: |
+        Add any other context about the problem here.
+    validations:
+      required: false
+  - type: markdown
+    attributes:
+      value: >
+        Thanks for contributing 🎉~

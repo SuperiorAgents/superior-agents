@@ -1,0 +1,100 @@
+name: 🐛 Bug report
+description: Raise an issue here if you find a bug.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        #### Before submitting an issue, please make sure the issue hasn't been already addressed by searching through [the existing and past issues](https://github.com/SuperiorAgents/superior-agents/issues?q=is%3Aissue+sort%3Acreated-desc+).
+  - type: dropdown
+    attributes:
+      label: Component
+      description: Which component of SuperiorAgents are you experiencing the bug in?
+      options:
+        - Agent (Trading)
+        - Agent (Marketing)
+        - Python Server (API/DB)
+        - Docker Container
+        - Notification Scraper
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Your current environment
+      description: |
+        Please share your environment details including:
+        - OS: [e.g. Windows 10, macOS 12.3, Ubuntu 20.04]
+        - Python version: [e.g. 3.12.0]
+        - SuperiorAgents version: [e.g. commit hash or version]
+        - Relevant package versions
+      placeholder: |
+        OS: 
+        Python version:
+        SuperiorAgents version:
+        Package versions:
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: 🐛 Describe the bug
+      description: |
+        Please provide a clear and concise description of what the bug is.
+        If relevant, add a minimal example so that we can reproduce the error.
+        For code examples, please use code blocks:
+        ```python
+        # Example code that produces the error
+        ```
+      placeholder: |
+        A clear and concise description of what the bug is.
+
+        Steps to reproduce:
+        1. 
+        2. 
+        3. 
+
+        Error message:
+        ```
+        Paste the full error message and traceback here
+        ```
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Expected behavior
+      description: |
+        Describe what you expected to happen.
+      placeholder: |
+        What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Configuration
+      description: |
+        If applicable, share relevant configuration details (with sensitive information redacted).
+      placeholder: |
+        Agent configuration:
+        ```json
+        {
+          "agent_id": "example",
+          "model": "claude"
+        }
+        ```
+
+        .env values (WITHOUT sensitive tokens):
+        ```
+        API_DB_BASE_URL=http://localhost:9020
+        ```
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: Additional context
+      description: |
+        Add any other context about the problem here. Screenshots, logs, or other relevant information.
+      placeholder: |
+        Any additional information that might help us diagnose the issue.
+    validations:
+      required: false

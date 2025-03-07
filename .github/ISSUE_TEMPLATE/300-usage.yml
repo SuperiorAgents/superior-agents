@@ -1,0 +1,57 @@
+name: 💻 Usage
+description: Raise an issue here if you don't know how to use SuperiorAgents.
+title: "[Usage]: "
+labels: ["usage"]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        #### Before submitting an issue, please make sure the issue hasn't been already addressed by searching through [the existing and past issues](https://github.com/SuperiorAgents/superior-agents/issues?q=is%3Aissue%20state%3Aopen%20sort%3Acreated-desc).
+  - type: textarea
+    attributes:
+      label: Your current environment
+      description: |
+        Please share your environment details including:
+        - OS: [e.g. Windows 10, macOS 12.3, Ubuntu 20.04]
+        - Python version: [e.g. 3.8.10]
+        - SuperiorAgents version: [e.g. 0.1.0]
+        - Installation method: [e.g. pip, source]
+      placeholder: |
+        OS: 
+        Python version:
+        SuperiorAgents version:
+        Installation method:
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: How would you like to use SuperiorAgents?
+      description: |
+        A detailed description of how you want to use SuperiorAgents.
+      placeholder: |
+        I want to ...
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: What have you tried so far?
+      description: |
+        Please describe what you've already attempted, including any code examples or configurations.
+      placeholder: |
+        I've tried:
+        ```python
+        # Your code here
+        ```
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: Additional context
+      description: |
+        Add any other context or screenshots about your usage question here.
+    validations:
+      required: false
+  - type: markdown
+    attributes:
+      value: >
+        Thanks for contributing 🎉~
