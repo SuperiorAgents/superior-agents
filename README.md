@@ -1,27 +1,30 @@
-# Table of Contents
+# Superior Agents
+
+## Table of Contents
+
 - [Superior Agent](#superior-agent)
-    - [Features](#features)
-    - [Gitbook Documentation](#gitbook-documentation)
+  - [Features](#features)
+  - [Gitbook Documentation](#gitbook-documentation)
 - [Installation](#installation)
-    - [Requirements](#requirements)
-    - [Agent-side](#agent-side)
-        - [ABI](#abi)
-        - [File Locations](#file-locations)
-        - [Why These Files Are Important](#why-these-files-are-important)
-        - [Agent Configuration JSON Files](#agent-configuration-json-files)
-    - [Python server-side](#python-server-side)
-    - [Environment Variable](#environment-variable)
+  - [Requirements](#requirements)
+  - [Agent-side](#agent-side)
+    - [ABI](#abi)
+    - [File Locations](#file-locations)
+    - [Why These Files Are Important](#why-these-files-are-important)
+    - [Agent Configuration JSON Files](#agent-configuration-json-files)
+  - [Python server-side](#python-server-side)
+  - [Environment Variable](#environment-variable)
 - [Quick Start](#quick-start)
-    - [Run Agent Docker Container](#run-agent-docker-container)
-    - [Run Python Server](#run-python-server)
-      - [Uvicorn](#uvicorn)
-    - [Run the Agent](#run-the-agent)
+  - [Run Agent Docker Container](#run-agent-docker-container)
+  - [Run Python Server](#run-python-server)
+    - [Uvicorn](#uvicorn)
+  - [Run the Agent](#run-the-agent)
 - [Python Server API Documentation](#python-server-api-documentation)
 - [Notification Scraper (optional)](#notification-scraper-optional)
 - [Contributing](#contributing)
 - [License](#license)
 
-# Superior Agent
+## Superior Agent
 
 This project is a trading and marketing agent that interacts with various APIs to perform trading operations and manage marketing strategies. It utilizes FastAPI for the web server, Docker for container management, and various libraries for interacting with blockchain networks and social media platforms.
 
@@ -46,14 +49,19 @@ For a comprehensive guide to the Superior Agent Framework, please visit our [Git
 - Python 3.12 or higher.
 - [Docker](https://docs.docker.com/engine/install/ubuntu/)
 - Install pyenv requirements
+
 ```
 sudo apt install -y build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev curl libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev` (for gcc, basic build essentials)
 ```
+
 - Install pyenv
+
 ```
 curl https://pyenv.run | bash
 ```
+
 - Add pyenv to bashrc
+
 ```
 echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.bashrc
 echo 'export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.bashrc
@@ -61,7 +69,9 @@ echo 'eval "$(pyenv init --path)"' >> ~/.bashrc
 echo 'eval "$(pyenv init -)"' >> ~/.bashrc
 source ~/.bashrc
 ```
+
 - Install docker
+
 ```
 sudo apt-get update
 sudo apt-get install -y ca-certificates curl gnupg lsb-release
@@ -70,20 +80,23 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docke
 sudo apt-get update
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io
 ```
-- Add user to docker 
+
+- Add user to docker
+
 ```
 sudo groupadd docker
 sudo usermod -aG docker $USER
 newgrp docker
 ```
+
 - Test your configuration
+
 ```
 pyenv --version
 python --version
 docker --version
 docker-compose --version
 ```
-
 
 ## Agent-side
 
@@ -115,7 +128,9 @@ This project requires two essential ABI (Application Binary Interface) files for
 - Uniswap Router ABI (`uniswap_router_abi.json`)
 
 ### File Locations
+
 Both files should be placed in the following directory structure:
+
 ```
 superior-agents/
   ├── agent/
@@ -127,7 +142,9 @@ superior-agents/
 ```
 
 ### Why These Files Are Important
+
 1. **Contract Interaction**: These ABI files are required for the Docker container to:
+
    - Decode smart contract functions and events
    - Format transaction data correctly
    - Interact with the Ethereum blockchain
@@ -196,9 +213,9 @@ Make sure to include these variables to .env file in agent's directory
 
 ```env
 TWITTER_API_KEY =
-TWITTER_API_SECRET = 
-TWITTER_BEARER_TOKEN = 
-TWITTER_ACCESS_TOKEN = 
+TWITTER_API_SECRET =
+TWITTER_BEARER_TOKEN =
+TWITTER_ACCESS_TOKEN =
 TWITTER_ACCESS_TOKEN_SECRET =
 API_DB_BASE_URL=
 API_DB_API_KEY=
@@ -251,6 +268,7 @@ uvicorn routes.api:app --port 9020
 ## Run the agent (in a seperate tab)
 
 To run the trading bot
+
 ```bash
 # Navigate into root folder
 cd ../..
@@ -265,6 +283,7 @@ python -m scripts.main trading agent_007
 ```
 
 To run the marketing bot
+
 ```bash
 # Example running command
 python -m scripts.main marketing <agent_id>

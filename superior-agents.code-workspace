@@ -1,0 +1,33 @@
+{
+    "folders": [
+        {
+            "name": "agent",
+            "path": "./agent"
+        },
+        {
+            "name": "notification",
+            "path": "./notification"
+        },
+        {
+            "name": "server",
+            "path": "./server"
+        },
+        {
+            "name": "vault",
+            "path": "./vault"
+        },
+        {
+            "name": "uptime-checker",
+            "path": "./single-agent-uptime-checker"
+        },
+        {
+            "name": "tee-txn-signer",
+            "path": "./tee-txn-signer"
+        },
+        {
+            "name": "root",
+            "path": "."
+        }
+    ],
+    "settings": {}
+}
