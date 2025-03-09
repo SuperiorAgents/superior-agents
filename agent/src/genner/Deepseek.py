@@ -24,7 +24,7 @@ class DeepseekGenner(Genner):
     ):
         """
         Initialize the Deepseek-based generator.
-        - Sets up the generator with Deepseek configuration and streaming function. 
+        - Sets up the generator with Deepseek configuration and streaming function.
         - Supports both OpenAI and OpenRouter clients.
 
         Args:
@@ -224,9 +224,6 @@ class DeepseekGenner(Genner):
         """
         Extract code blocks from a Deepseek model response.
 
-        This static method extracts Python code blocks from the raw model response
-        using regex patterns to find code within markdown code blocks.
-
         Args:
                 response (str): The raw response from the model
                 blocks (List[str]): XML tag names to extract content from before processing into code
@@ -309,4 +306,3 @@ class DeepseekGenner(Genner):
                 )
 
         return Ok(extracts)
-

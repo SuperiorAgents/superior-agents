@@ -38,13 +38,7 @@ mock_portfolio: PortfolioStatus = {
 
 
 class TradingSensor:
-    """
-    Sensor for monitoring and retrieving trading-related metrics.
-
-    This class provides functionality to retrieve wallet statistics and portfolio status
-    for a trading agent. It interfaces with blockchain services to get real-time data
-    about wallet balances and token holdings.
-    """
+    """Sensor for monitoring and retrieving trading-related metrics."""
 
     def __init__(
         self,
@@ -123,4 +117,3 @@ class TradingSensor:
         if metric_name not in metrics:
             raise ValueError(f"Unsupported metric: {metric_name}")
         return metrics[metric_name]
-
