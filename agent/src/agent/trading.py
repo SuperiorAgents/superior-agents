@@ -1,295 +1,495 @@
 import re
-from enum import Enum
 from textwrap import dedent
-from typing import Dict, List, Literal, Optional, Set, Tuple, TypedDict, Union
+from typing import Dict, List, Set, Tuple
+from datetime import datetime, timezone, timedelta
 
-from loguru import logger
 from result import Err, Ok, Result
 
 from src.container import ContainerManager
-from src.datatypes import StrategyData
 from src.db import APIDB
 from src.genner.Base import Genner
+from src.client.rag import RAGClient
 from src.sensor.trading import TradingSensor
 from src.types import ChatHistory, Message
-from src.rag import StrategyRAG
 
 
 class TradingPromptGenerator:
-	def __init__(self, prompts: Dict[str, str]):
-		"""
-		Initialize with custom prompts for each function.
+    """Generator for creating prompts used in trading agent workflows."""
 
-		Args:
-			prompts: Dictionary containing custom prompts for each function
-			trading_type: Type of trading being performed
+    def __init__(self, prompts: Dict[str, str]):
+        """
+        Initialize with custom prompts for each function.
 
-		Required prompt keys:
-		- system_prompt
-		- research_code_prompt
-		- research_code_on_notif_prompt
-		- strategy_prompt
-		- address_research_code_prompt
-		- trading_code_prompt
-		- regen_code_prompt
-		"""
-		if prompts:
-			prompts = self.get_default_prompts()
-		self._validate_prompts(prompts)
-		self.prompts = self.get_default_prompts()
+        Args:
+                prompts (Dict[str, str]): Dictionary containing custom prompts for each function
+        """
+        if prompts:
+            prompts = self.get_default_prompts()
+        self._validate_prompts(prompts)
+        self.prompts = self.get_default_prompts()
 
-	@staticmethod
-	def _instruments_to_curl_prompt(instruments: List[str]):
-		try:
-			mapping = {
-				"spot": dedent("""
-				# Spot 
-				curl -X POST "http://localhost:9009/api/v1/swap" \\
+    def _instruments_to_curl_prompt(
+        self,
+        instruments: List[str],
+        txn_service_url: str,
+        agent_id: str,
+        session_id: str,
+    ):
+        """
+        Convert trading instruments to curl command prompts.
+        - Generates curl command examples for each trading instrument
+
+        Args:
+                instruments (List[str]): List of trading instrument types
+                txn_service_url (str): URL of the transaction service
+                agent_id (str): ID of the agent
+                session_id (str): ID of the session
+
+        Returns:
+                str: String containing curl command examples for the specified instruments
+
+        Raises:
+                KeyError: If an unsupported trading instrument is provided
+        """
+        try:
+            # TODO calling spot is not correct, should call it swap
+            mapping = {
+                # 	"swap_solana": dedent(f"""
+                # 	# Swap solana
+                # 	curl -X 'POST' \
+                # 	'http://{txn_service_url}/api/v1/swap' \
+                # 	-H 'accept: application/json' \
+                # 	-H 'Content-Type: application/json' \
+                # 	-d '{
+                # 		"chainId": "<",
+                # 		"tokenIn": "string",
+                # 		"chainOut": "string",
+                # 		"tokenOut": "string",
+                # 		"amountIn": "string",
+                # 		"slippage": 0.5
+                # 	}'
+                # """),
+                "spot": dedent(
+                    f"""
+				curl -X POST "http://{txn_service_url}/api/v1/swap" \\
 				-H "Content-Type: application/json" \\
-				-d '{
-					"token_in": "<token_in_address>",
-					"token_out": "<token_out_address>",
-					"amount_in": "<amount>",
+				-H "x-superior-agent-id: {agent_id}" \\
+				-H "x-superior-session-id: {session_id}" \\
+				-d '{{
+					"tokenIn": "<token_in_address>",
+					"tokenOut": "<token_out_address>",
+					"normalAmountIn": "<amount>",
 					"slippage": "<slippage>"
-				}'
-			"""),
-				"futures": dedent("""
+				}}'
+			"""
+                ),
+                "futures": dedent(
+                    f"""
 				# Futures
-				curl -X POST "http://localhost:9009/api/v1/futures/position" \\
+				curl -X POST "http://{txn_service_url}/api/v1/futures/position" \\
 				-H "Content-Type: application/json" \\
-				-d '{
+				-d '{{
 					"market": "<market_symbol>",
 					"side": "<long|short>",
 					"leverage": "<leverage_multiplier>",
 					"size": "<position_size>",
 					"stop_loss": "<optional_stop_loss_price>",
 					"take_profit": "<optional_take_profit_price>"
-				}'
-			"""),
-				"options": dedent("""
+				}}'
+			"""
+                ),
+                "options": dedent(
+                    f"""
 				# Options
-				curl -X POST "http://localhost:9009/api/v1/options/trade" \\
+				curl -X POST "http://{txn_service_url}/api/v1/options/trade" \\
 				-H "Content-Type: application/json" \\
-				-d '{
+				-d '{{
 					"underlying": "<asset_symbol>",
 					"option_type": "<call|put>",
 					"strike_price": "<strike_price>",
 					"expiry": "<expiry_timestamp>",
 					"amount": "<contracts_amount>",
 					"side": "<buy|sell>"
-				}'
-			"""),
-				"defi": dedent("""
+				}}'
+			"""
+                ),
+                "defi": dedent(
+                    f"""
 				# Defi
-				curl -X POST "http://localhost:9009/api/v1/defi/interact" \\
+				curl -X POST "http://{txn_service_url}/api/v1/defi/interact" \\
 				-H "Content-Type: application/json" \\
-				-d '{
+				-d '{{
 					"protocol": "<protocol_name>",
 					"action": "<deposit|withdraw|stake|unstake>",
 					"asset": "<asset_address>",
 					"amount": "<amount>",
 					"pool_id": "<optional_pool_id>",
 					"slippage": "<slippage_tolerance>"
-				}'
-			"""),
-			}
-			instruments_str = [mapping[instrument] for instrument in instruments]
-			return "\n".join(instruments_str)
-		except KeyError as e:
-			raise KeyError(
-				f"Expected trading_instruments to be in ['spot', 'defi', 'futures', 'options'], {e}"
-			)
+				}}'
+			"""
+                ),
+            }
+            instruments_str = [mapping[instrument] for instrument in instruments]
+            return "\n".join(instruments_str)
+        except KeyError as e:
+            raise KeyError(
+                f"Expected trading_instruments to be in ['spot', 'defi', 'futures', 'options'], {e}"
+            )
 
-	@staticmethod
-	def _metric_to_metric_prompt(metric_name="wallet"):
-		try:
-			mapping = {"wallet": "your money in a crypto wallet"}
+    @staticmethod
+    def _metric_to_metric_prompt(metric_name="wallet"):
+        """
+        Convert a metric name to a human-readable description.
 
-			return mapping[metric_name]
-		except KeyError as e:
-			raise KeyError(f"Expected to metric_name to be in ['wallet'], {e}")
+        Args:
+                metric_name (str, optional): Name of the metric. Defaults to "wallet".
 
-	def _extract_default_placeholders(self) -> Dict[str, Set[str]]:
-		"""Extract placeholders from default prompts to use as required placeholders."""
-		placeholder_pattern = re.compile(r"{([^}]+)}")
-		return {
-			prompt_name: {
-				f"{{{p}}}" for p in placeholder_pattern.findall(prompt_content)
-			}
-			for prompt_name, prompt_content in self.get_default_prompts().items()
-		}
+        Returns:
+                str: Human-readable description of the metric
 
-	def _validate_prompts(self, prompts: Dict[str, str]) -> None:
-		"""
-		Validate prompts for required and unexpected placeholders.
+        Raises:
+                KeyError: If an unsupported metric name is provided
+        """
+        try:
+            mapping = {"wallet": "your money in a crypto wallet"}
 
-		Args:
-			prompts: Dictionary of prompt name to prompt content
+            return mapping[metric_name]
+        except KeyError as e:
+            raise KeyError(f"Expected to metric_name to be in ['wallet'], {e}")
 
-		Raises:
-			ValueError: If prompts are missing required placeholders or contain unexpected ones
-		"""
-		required_placeholders = self._extract_default_placeholders()
+    def _extract_default_placeholders(self) -> Dict[str, Set[str]]:
+        """
+        Extract placeholders from default prompts to use as required placeholders.
 
-		# Check all required prompts exist
-		missing_prompts = set(required_placeholders.keys()) - set(prompts.keys())
-		if missing_prompts:
-			raise ValueError(f"Missing required prompts: {missing_prompts}")
+        Returns:
+                Dict[str, Set[str]]: Dictionary mapping prompt names to sets of placeholders
+        """
+        placeholder_pattern = re.compile(r"{([^}]+)}")
+        return {
+            prompt_name: {
+                f"{{{p}}}" for p in placeholder_pattern.findall(prompt_content)
+            }
+            for prompt_name, prompt_content in self.get_default_prompts().items()
+        }
 
-		# Extract placeholders using regex
-		placeholder_pattern = re.compile(r"{([^}]+)}")
+    def _validate_prompts(self, prompts: Dict[str, str]) -> None:
+        """
+        Validate prompts for required and unexpected placeholders.
 
-		# Check each prompt for missing and unexpected placeholders
-		for prompt_name, prompt_content in prompts.items():
-			if prompt_name not in required_placeholders:
-				continue
+        Args:
+                prompts (Dict[str, str]): Dictionary of prompt name to prompt content
 
-			# Get actual placeholders in the prompt
-			actual_placeholders = {
-				f"{{{p}}}" for p in placeholder_pattern.findall(prompt_content)
-			}
-			required_set = required_placeholders[prompt_name]
+        Raises:
+                ValueError: If prompts are missing required placeholders or contain unexpected ones
+        """
+        required_placeholders = self._extract_default_placeholders()
 
-			# Check for missing placeholders
-			missing = required_set - actual_placeholders
-			if missing:
-				raise ValueError(
-					f"Missing required placeholders in {prompt_name}: {missing}"
-				)
+        # Check all required prompts exist
+        missing_prompts = set(required_placeholders.keys()) - set(prompts.keys())
+        if missing_prompts:
+            raise ValueError(f"Missing required prompts: {missing_prompts}")
 
-			# Check for unexpected placeholders
-			unexpected = actual_placeholders - required_set
-			if unexpected:
-				raise ValueError(
-					f"Unexpected placeholders in {prompt_name}: {unexpected}"
-				)
+        # Extract placeholders using regex
+        placeholder_pattern = re.compile(r"{([^}]+)}")
 
-	def generate_system_prompt(
-		self, role: str, time: str, metric_name: str, metric_state: str
-	) -> str:
-		return self.prompts["system_prompt"].format(
-			role=role, time=time, metric_name=metric_name, metric_state=metric_state
-		)
+        # Check each prompt for missing and unexpected placeholders
+        for prompt_name, prompt_content in prompts.items():
+            if prompt_name not in required_placeholders:
+                continue
 
-	def generate_strategy_first_time_prompt(self, apis: List[str]):
-		apis_str = ",\n".join(apis) if apis else self._get_default_apis_str()
+            # Get actual placeholders in the prompt
+            actual_placeholders = {
+                f"{{{p}}}" for p in placeholder_pattern.findall(prompt_content)
+            }
+            required_set = required_placeholders[prompt_name]
 
-		return self.prompts["strategy_prompt_first"].format(apis_str=apis_str)
+            # Check for missing placeholders
+            missing = required_set - actual_placeholders
+            if missing:
+                raise ValueError(
+                    f"Missing required placeholders in {prompt_name}: {missing}"
+                )
 
-	def generate_strategy_prompt(
-		self,
-		cur_environment: str,
-		prev_strategy: str,
-		prev_strategy_result: str,
-		apis: List[str],
-		rag_summary: str,
-		before_metric_state: str,
-		after_metric_state: str,
-	) -> str:
-		apis_str = ",\n".join(apis) if apis else self._get_default_apis_str()
+            # Check for unexpected placeholders
+            unexpected = actual_placeholders - required_set
+            if unexpected:
+                raise ValueError(
+                    f"Unexpected placeholders in {prompt_name}: {unexpected}"
+                )
 
-		return self.prompts["strategy_prompt"].format(
-			cur_environment=cur_environment,
-			prev_strategy=prev_strategy,
-			prev_strategy_result=prev_strategy_result,
-			apis_str=apis_str,
-			rag_summary=rag_summary,
-			before_metric_state=before_metric_state,
-			after_metric_state=after_metric_state,
-		)
+    def generate_system_prompt(
+        self,
+        role: str,
+        time: str,
+        metric_name: str,
+        metric_state: str,
+        network: str,
+    ) -> str:
+        """
+        Generate a system prompt for the trading agent.
 
-	def generate_address_research_code_prompt(
-		self, role: str, time: str, metric_name: str, metric_state: str
-	) -> str:
-		return self.prompts["address_research_code_prompt"].format(
-			role=role, time=time, metric_name=metric_name, metric_state=metric_state
-		)
+        Args:
+                role (str): The role of the agent (e.g., "trader")
+                time (str): Time frame for the trading goal
+                metric_name (str): Name of the metric to maximize
+                metric_state (str): Current state of the metric/portfolio
+                network (str): Blockchain network being used
 
-	def generate_trading_code_prompt(
-		self,
-		strategy_output: str,
-		address_research: str,
-		apis: List[str],
-		trading_instruments: List[str],
-	) -> str:
-		trading_instruments_str = self._instruments_to_curl_prompt(trading_instruments)
-		apis_str = ",\n".join(apis) if apis else self._get_default_apis_str()
-		apis_str += "\n"
-		apis_str += trading_instruments_str
+        Returns:
+                str: Formatted system prompt
+        """
+        now = datetime.now()
+        today_date = now.strftime("%Y-%m-%d")
 
-		return self.prompts["trading_code_prompt"].format(
-			strategy_output=strategy_output,
-			address_research=address_research,
-			apis_str=apis_str,
-			trading_instruments_str=trading_instruments_str,
-		)
+        return self.prompts["system_prompt"].format(
+            role=role,
+            today_date=today_date,
+            metric_name=metric_name,
+            time=time,
+            network=network,
+            metric_state=metric_state,
+        )
 
-	def generate_trading_code_non_address_prompt(
-		self,
-		strategy_output: str,
-		apis: List[str],
-		trading_instruments: List[str],
-	):
-		trading_instruments_str = self._instruments_to_curl_prompt(trading_instruments)
-		apis_str = ",\n".join(apis) if apis else self._get_default_apis_str()
-		apis_str += "\n"
-		apis_str += trading_instruments_str
+    def generate_research_code_first_time_prompt(self, apis: List[str]):
+        """
+        Generate a prompt for the first-time research code generation.
 
-		return self.prompts["trading_code_non_address_prompt"].format(
-			strategy_output=strategy_output,
-			apis_str=apis_str,
-			trading_instruments_str=trading_instruments_str,
-		)
+        Args:
+                apis (List[str]): List of APIs available to the agent
 
-	def regen_code(self, previous_code: str, errors: str) -> str:
-		return self.prompts["regen_code_prompt"].format(
-			errors=errors, previous_code=previous_code
-		)
+        Returns:
+                str: Formatted prompt for first-time research code generation
+        """
+        apis_str = ",\n".join(apis) if apis else self._get_default_apis_str()
 
-	@staticmethod
-	def _get_default_apis_str() -> str:
-		default_apis = [
-			"Coingecko (env variables COINGECKO_KEY)",
-			"Etherscan (env variables ETHERSCAN_KEY)",
-			"Twitter (env variables TWITTER_API_KEY, TWITTER_API_SECRET)",
-			"DuckDuckGo (using the command line `ddgr`)",
-		]
-		return ",\n".join(default_apis)
+        return self.prompts["research_code_prompt_first"].format(apis_str=apis_str)
 
-	@staticmethod
-	def get_default_prompts() -> Dict[str, str]:
-		"""Get the complete set of default prompts that can be customized."""
-		return {
-			"system_prompt": dedent("""
-			You are a {role} crypto trader
+    def generate_research_code_prompt(
+        self,
+        notifications_str: str,
+        apis: List[str],
+        prev_strategy: str,
+        rag_summary: str,
+        before_metric_state: str,
+        after_metric_state: str,
+    ):
+        """
+        Generate a prompt for research code generation with context.
+
+        Args:
+                notifications_str (str): String containing recent notifications
+                apis (List[str]): List of APIs available to the agent
+                prev_strategy (str): Description of the previous strategy
+                rag_summary (str): Summary from retrieval-augmented generation
+                before_metric_state (str): State of the metric before strategy execution
+                after_metric_state (str): State of the metric after strategy execution
+
+        Returns:
+                str: Formatted prompt for research code generation
+        """
+        apis_str = ",\n".join(apis) if apis else self._get_default_apis_str()
+
+        return self.prompts["research_code_prompt"].format(
+            notifications_str=notifications_str,
+            apis_str=apis_str,
+            prev_strategy=prev_strategy,
+            rag_summary=rag_summary,
+            before_metric_state=before_metric_state,
+            after_metric_state=after_metric_state,
+        )
+
+    def generate_strategy_prompt(
+        self, notifications_str: str, research_output_str: str, network: str
+    ) -> str:
+        """
+        Generate a prompt for strategy formulation.
+
+        Args:
+                notifications_str (str): String containing recent notifications
+                research_output_str (str): Output from the research code
+                network (str): Blockchain network to operate on
+
+        Returns:
+                str: Formatted prompt for strategy formulation
+        """
+        return self.prompts["strategy_prompt"].format(
+            notifications_str=notifications_str,
+            research_output_str=research_output_str,
+            network=network,
+        )
+
+    def generate_address_research_code_prompt(
+        self,
+    ) -> str:
+        """
+        Generate a prompt for researching token addresses.
+
+        Returns:
+                str: Formatted prompt for address research code generation
+        """
+        return self.prompts["address_research_code_prompt"].format()
+
+    def generate_trading_code_prompt(
+        self,
+        strategy_output: str,
+        address_research: str,
+        apis: List[str],
+        trading_instruments: List[str],
+        agent_id: str,
+        txn_service_url: str,
+        session_id: str,
+    ) -> str:
+        """
+        Generate a prompt for trading code generation.
+
+        Args:
+                strategy_output (str): Output from the strategy formulation
+                address_research (str): Results from token address research
+                apis (List[str]): List of APIs available to the agent
+                trading_instruments (List[str]): List of available trading instruments
+                agent_id (str): ID of the agent
+                txn_service_url (str): URL of the transaction service
+                session_id (str): ID of the current session
+
+        Returns:
+                str: Formatted prompt for trading code generation
+        """
+        trading_instruments_str = self._instruments_to_curl_prompt(
+            instruments=trading_instruments,
+            agent_id=agent_id,
+            txn_service_url=txn_service_url,
+            session_id=session_id,
+        )
+
+        return self.prompts["trading_code_prompt"].format(
+            strategy_output=strategy_output,
+            address_research=address_research,
+            trading_instruments_str=trading_instruments_str,
+        )
+
+    def generate_trading_code_non_address_prompt(
+        self,
+        strategy_output: str,
+        apis: List[str],
+        trading_instruments: List[str],
+        agent_id: str,
+        txn_service_url: str,
+        session_id: str,
+    ):
+        """
+        Generate a prompt for trading code without address research.
+
+        Args:
+                strategy_output (str): Output from the strategy formulation
+                apis (List[str]): List of APIs available to the agent
+                trading_instruments (List[str]): List of available trading instruments
+                agent_id (str): ID of the agent
+                txn_service_url (str): URL of the transaction service
+                session_id (str): ID of the current session
+
+        Returns:
+                str: Formatted prompt for trading code generation without address research
+        """
+        trading_instruments_str = self._instruments_to_curl_prompt(
+            instruments=trading_instruments,
+            agent_id=agent_id,
+            txn_service_url=txn_service_url,
+            session_id=session_id,
+        )
+        apis_str = ",\n".join(apis) if apis else self._get_default_apis_str()
+        apis_str += "\n"
+        apis_str += trading_instruments_str
+
+        return self.prompts["trading_code_non_address_prompt"].format(
+            strategy_output=strategy_output,
+            apis_str=apis_str,
+            trading_instruments_str=trading_instruments_str,
+        )
+
+    def regen_code(self, previous_code: str, errors: str) -> str:
+        """
+        Generate a prompt for code regeneration after errors.
+
+        Args:
+                previous_code (str): The code that encountered errors
+                errors (str): Error messages from code execution
+
+        Returns:
+                str: Formatted prompt for code regeneration
+        """
+        return self.prompts["regen_code_prompt"].format(
+            errors=errors, previous_code=previous_code
+        )
+
+    @staticmethod
+    def _get_default_apis_str() -> str:
+        """
+        Get a string representation of default APIs.
+
+        Returns:
+                str: Comma-separated string of default APIs
+        """
+        default_apis = [
+            "Coingecko (env variables COINGECKO_API_KEY)",
+            "Twitter (env variables TWITTER_API_KEY, TWITTER_API_SECRET)",
+            "DuckDuckGo (using the command line `ddgr`)",
+        ]
+        return ",\n".join(default_apis)
+
+    @staticmethod
+    def get_default_prompts() -> Dict[str, str]:
+        """Get the complete set of default prompts that can be customized."""
+        return {
+            "system_prompt": dedent(
+                """
+			You are a {role} crypto trader.
+			Today's date is {today_date}.
 			Your goal is to maximize {metric_name} within {time}
-			You are currently at {metric_state}
-		""").strip(),
-			#
-			#
-			#
-			"strategy_prompt_first": dedent("""
-			You know nothing about your environment.
-			What do you do now?
-			You can use the following API to do research or run code to interact with the worlds :
+			Your current portfolio on {network} network is: {metric_state}
+		"""
+            ).strip(),
+            #
+            #
+            #
+            "research_code_prompt_first": dedent(
+                """
+			You know nothing about your environment. 
+			Please write code using the format below to research the state of the market.
+			You have access to the following APIs:
 			<APIs>
 			{apis_str}
 			</APIs>
-			Please explain your approach.
-		""").strip(),
-			#
-			#
-			#
-			"strategy_prompt": dedent("""
-			Here is what is going on in your environment right now :{cur_environment}.
-			Here is what you just tried :{prev_strategy}.
-			It {prev_strategy_result}.
-			What do you do now?
-			You can pursue or modify your current approach or try a new one.
-			You can use the following APIs to do further research or run code to interact with the world :
+			You are to print for everything, and raise every error or unexpected behavior of the program.
+			```python
+			from dotenv import load_dotenv
+			import ...
+
+			load_dotenv()
+
+			def main():
+				....
+			
+			main()
+			```
+		"""
+            ).strip(),
+            #
+            #
+            #
+            "research_code_prompt": dedent(
+                """
+			Here is what is going on in your environment right now : 
+			<LatestNotification>
+			{notifications_str}
+			</LatestNotification>
+			You have access to these APIs:
 			<APIs>
 			{apis_str}
 			</APIs>
+			Your current strategy is: 
+			<PrevStrategy>
+			{prev_strategy}
+			</PrevStrategy>
 			For reference, in the past when you encountered a similar situation you reasoned as follows:
 			<RAG>
 			{rag_summary}
@@ -301,18 +501,166 @@ class TradingPromptGenerator:
 			<AfterStrategyExecution>
 			{after_metric_state}
 			</AfterStrategyExecution>
-			Please explain your approach.
-		""").strip(),
-			#
-			#
-			#
-			"address_research_code_prompt": dedent("""
-			You are a {role} crypto trader
-			Your goal is to maximize {metric_name} within {time}
-			You are currently at {metric_state}
-			For the coins mentioned above, please generate some code to get the actual address of those tokens or the wrapped equivalent.
-			Use the Dexscreener API to find the token contract addresses if you do not know them.
-			You are to generate like the format below:
+			You are to print for everything, and raise every error or unexpected behavior of the program.
+			Please write code using format below to research the state of the market and how best to react to it.
+			```python
+			from dotenv import load_dotenv
+			import ...
+
+			load_dotenv()
+
+			def main():
+				....
+			
+			main()
+			```
+		"""
+            ).strip(),
+            #
+            #
+            #
+            "strategy_prompt": dedent(
+                """
+			You just learnt the following information: 
+			<LatestNotification>
+			{notifications_str}
+			</LatestNotifications>
+			<ResearchOutput>
+			{research_output_str}
+			</ResearchOutput>
+			Decide what coin(s) on the {network} network you should buy today to maximise your chances of making money. 
+			Reason through your decision process below, formulating a strategy and explaining which coin(s) you will buy.
+		"""
+            ).strip(),
+            #
+            #
+            #
+            "address_research_code_prompt": dedent(
+                """
+			For native token, on ethereum compatible chain (like ethereum, polygon, arbitrum, optimism, etc...) just use burn address 0x0000000000000000000000000000000000000000 or wrapped token like wrapped WETH https://etherscan.io/token/0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2
+			For solana compatible chain, just use burn address 1nc1nerator11111111111111111111111111111111 or wrapped SOL https://solscan.io/token/So11111111111111111111111111111111111111112.
+			For non-native token, Please generate some code to get the address of the tokens mentioned above.
+			Use the CoinGecko API to find the token contract addresses if you do not know them.
+			(curl -X GET "https://api.coingecko.com/api/v3/search?query={{ASSUMED_TOKEN_SYMBOL}}) # To find token symbols
+			```json-schema
+			{{
+			"type": "object",
+			"properties": {{
+				"coins": {{
+					"type": "array",
+					"items": {{
+						"type": "object",
+						"properties": {{
+							"id": {{
+								"type": "string",
+								"description": "Unique identifier for the coin in CoinGecko's system"
+							}},
+							"name": {{
+								"type": "string",
+								"description": "Display name of the cryptocurrency"
+							}},
+							"api_symbol": {{
+								"type": "string",
+								"description": "Symbol used in API references"
+							}},
+							"symbol": {{
+								"type": "string",
+								"description": "Trading symbol of the cryptocurrency"
+							}},
+							"market_cap_rank": {{
+								"type": ["integer", "null"],
+								"description": "Ranking by market capitalization, null if not ranked"
+							}},
+							"thumb": {{
+								"type": "string",
+								"format": "uri",
+								"description": "URL to thumbnail image of coin logo"
+							}},
+							"large": {{
+								"type": "string",
+								"format": "uri",
+								"description": "URL to large image of coin logo"
+							}}
+						}},
+						"required": ["id", "name", "api_symbol", "symbol", "thumb", "large"]
+					}}
+				}},
+				"exchanges": {{
+					"type": "array",
+					"description": "List of related exchanges",
+					"items": {{
+						"type": "object"
+					}}
+				}},
+				"icos": {{
+					"type": "array",
+					"description": "List of related ICOs",
+					"items": {{
+						"type": "object"
+					}}
+				}},
+				"categories": {{
+					"type": "array",
+					"description": "List of related categories",
+					"items": {{
+						"type": "object"
+					}}
+				}},
+				"nfts": {{
+					"type": "array",
+					"description": "List of related NFTs",
+					"items": {{
+						"type": "object"
+					}}
+				}}
+			}},
+			"required": ["coins", "exchanges", "icos", "categories", "nfts"]
+			}}
+			```
+			(curl -X GET "https://api.coingecko.com/api/v3/coins/{{COINGECKO_COIN_ID}}") # To find the address of the symbols
+			```json-schema
+			{{
+				"type": "object",
+				"properties": {{
+					"id": {{ 
+						"type": "string", 
+						"description": "CoinGecko unique identifier" 
+					}},
+					"symbol": {{ 
+						"type": "string", 
+						"description": "Token trading symbol (lowercase)" 
+					}},
+					"name": {{ 
+						"type": "string", 
+						"description": "Token name" 
+					}},
+					"asset_platform_id": {{ 
+						"type": ["string", "null"], 
+						"description": "Platform ID if token is on another chain, null if native chain" 
+					}},
+					"platforms": {{ 
+						"type": "object", 
+						"description": "Blockchain platforms where token exists with contract addresses, keys are platform IDs, values are addresses"
+					}},
+					"detail_platforms": {{
+						"type": "object",
+						"description": "Detailed platform info including decimal places and contract addresses",
+						"patternProperties": {{
+							"^.*$": {{
+								"type": "object",
+								"properties": {{
+									"decimal_place": {{ "type": ["integer", "null"] }},
+									"contract_address": {{ "type": "string" }}
+								}}
+							}}
+						}}
+					}}
+				}},
+				"required": ["id", "platforms"]
+			}}
+			```
+			You are to print for everything, and raise every error or unexpected behavior of the program.
+			You are to generate code in the the format below:
 			```python
 			from dotenv import load_dotenv
 			import ...
@@ -325,42 +673,48 @@ class TradingPromptGenerator:
 			main()
 			```
 			Please generate the code, and make sure the output are short and concise, you only need to show list of token and its address.
-		""").strip(),
-			#
-			#
-			#
-			"trading_code_prompt": dedent("""
-			Please write code to implement this strategy : 
+		"""
+            ).strip(),
+            #
+            #
+            #
+            "trading_code_prompt": dedent(
+                """
+			Please write code to implement the following strategy.
 			<Strategy>
 			{strategy_output}
 			</Strategy>
-			You have the following APIs : 
-			<APIs>
-			{apis_str}
-			</APIs>
-			You may use the information on these contract addresses :
+			Here are some token contract addresses that may help you:
 			<AddressResearch>
 			{address_research}
 			</AddressResearch>
-			And you may use these local service as trading instruments to perform your task:
+			You are to use curl to interact with our API:
 			<TradingInstruments>
 			{trading_instruments_str}
 			</TradingInstruments>
+			You are to generate the trading/research code which output can be used in your next reply.
+			You are also to make sure you are printing every steps you're taking in the code for your task.
+			Account for everything, and for every failure of the steps, you are to raise exceptions.
+			Dont bother try/catching the error, its better to just crash the program if something unexpected happens
 			Format the code as follows:
 			```python
 			from dotenv import load_dotenv
 			import ...
 
 			def main():
-				....
-			
+			....
+
 			main()
+
 			```
-		""").strip(),
-			#
-			#
-			#
-			"trading_code_non_address_prompt": dedent("""
+			Please generate the code.
+		"""
+            ).strip(),
+            #
+            #
+            #
+            "trading_code_non_address_prompt": dedent(
+                """
 			Please write code to implement this strategy : 
 			<Strategy>
 			{strategy_output}
@@ -373,6 +727,8 @@ class TradingPromptGenerator:
 			<TradingInstruments>
 			{trading_instruments_str}
 			</TradingInstruments>
+			You are to print for everything.
+			YOU ARE TO RAISE EXCEPTION for every ERRORS, if a data is EMPTY, non 200 response from REQUESTS, and etc. YOU ARE TO RAISE THEM.
 			Format the code as follows:
 			```python
 			from dotenv import load_dotenv
@@ -383,11 +739,13 @@ class TradingPromptGenerator:
 			
 			main()
 			```
-		""").strip(),
-			#
-			#
-			#
-			"regen_code_prompt": dedent("""
+		"""
+            ).strip(),
+            #
+            #
+            #
+            "regen_code_prompt": dedent(
+                """
 			Given this errors
 			<Errors>
 			{errors}
@@ -396,7 +754,9 @@ class TradingPromptGenerator:
 			<Code>
 			{previous_code}
 			</Code>
-			You are to generate code that fixes the error but doesnt stray too much from the original code, in this format.
+			You are to print for everything, and raise every error or unexpected behavior of the program.
+			You are to generate new code that does not change or stray from the original code.
+			You are to generate code that fixes the error, in this format.
 			```python
 			from dotenv import load_dotenv
 			import ...
@@ -408,200 +768,349 @@ class TradingPromptGenerator:
 			
 			main()
 			```
-			Please generate the code.
-		""").strip(),
-		}
+			Please generate the code that fixes the problem..
+		"""
+            ).strip(),
+        }
 
 
 class TradingAgent:
-	def __init__(
-		self,
-		id: str,
-		rag: StrategyRAG,
-		sensor: TradingSensor,
-		genner: Genner,
-		container_manager: ContainerManager,
-		prompt_generator: TradingPromptGenerator,
-		db: APIDB,
-	):
-		self.id = id
-		self.rag = rag
-		self.sensor = sensor
-		self.chat_history = ChatHistory()
-		self.genner = genner
-		self.container_manager = container_manager
-		self.db = db
-		self.prompt_generator = prompt_generator
+    """Agent responsible for executing trading strategies based on market data and notifications."""
 
-	def reset(self) -> None:
-		self.chat_history = ChatHistory()
+    def __init__(
+        self,
+        agent_id: str,
+        rag: RAGClient,
+        db: APIDB,
+        sensor: TradingSensor,
+        genner: Genner,
+        container_manager: ContainerManager,
+        prompt_generator: TradingPromptGenerator,
+    ):
+        """
+        Initialize the trading agent with all required components.
 
-	def prepare_system(self, role: str, time: str, metric_name: str, metric_state: str):
-		ctx_ch = ChatHistory(
-			Message(
-				role="system",
-				content=self.prompt_generator.generate_system_prompt(
-					role=role, time=time, metric_name=metric_name, metric_state=metric_state
-				),
-			)
-		)
+        Args:
+                agent_id (str): Unique identifier for this agent
+                rag (RAGClient): Client for retrieval-augmented generation
+                db (APIDB): Database client for storing and retrieving data
+                sensor (TradingSensor): Sensor for monitoring trading-related metrics
+                genner (Genner): Generator for creating code and strategies
+                container_manager (ContainerManager): Manager for code execution in containers
+                prompt_generator (TradingPromptGenerator): Generator for creating prompts
+        """
+        self.agent_id = agent_id
+        self.db = db
+        self.rag = rag
+        self.sensor = sensor
+        self.genner = genner
+        self.container_manager = container_manager
+        self.prompt_generator = prompt_generator
 
-		return ctx_ch
+        self.chat_history = ChatHistory()
 
-	def gen_strategy(
-		self,
-		cur_environment: str,
-		prev_strategy: str,
-		prev_strategy_result: str,
-		apis: List[str],
-		rag_summary: str,
-		before_metric_state: str,
-		after_metric_state: str,
-	) -> Result[Tuple[str, ChatHistory], str]:
-		ctx_ch = ChatHistory(
-			Message(
-				role="user",
-				content=self.prompt_generator.generate_strategy_prompt(
-					cur_environment=cur_environment,
-					prev_strategy=prev_strategy,
-					prev_strategy_result=prev_strategy_result,
-					apis=apis,
-					rag_summary=rag_summary,
-					before_metric_state=before_metric_state,
-					after_metric_state=after_metric_state,
-				),
-			)
-		)
+    def reset(self) -> None:
+        """Reset the agent's chat history."""
+        self.chat_history = ChatHistory()
 
-		gen_result = self.genner.ch_completion(self.chat_history + ctx_ch)
+    def prepare_system(
+        self, role: str, time: str, metric_name: str, metric_state: str, network: str
+    ):
+        """
+        Prepare the system prompt for the agent.
 
-		if err := gen_result.err():
-			return Err(f"TradingAgent.gen_strategy, err: \n{err}")
+        Args:
+                role (str): The role of the agent (e.g., "trader")
+                time (str): Current time information
+                metric_name (str): Name of the metric to track
+                metric_state (str): Current state of the metric
+                network (str): Blockchain network to operate on
 
-		response = gen_result.unwrap()
-		ctx_ch = ctx_ch.append(Message(role="assistant", content=response))
+        Returns:
+                ChatHistory: Chat history with the system prompt
+        """
+        system_prompt = self.prompt_generator.generate_system_prompt(
+            role=role,
+            time=time,
+            metric_name=metric_name,
+            network=network,
+            metric_state=metric_state,
+        )
+        self.chat_history = ChatHistory([Message(role="system", content=system_prompt)])
+        return self.chat_history
 
-		return Ok((response, ctx_ch))
+    def gen_research_code_on_first(
+        self, apis: List[str]
+    ) -> Result[Tuple[str, ChatHistory], str]:
+        """
+        Generate research code for the first time.
 
-	def gen_strategy_on_first(
-		self, apis: List[str]
-	) -> Result[Tuple[str, ChatHistory], str]:
-		ctx_ch = ChatHistory(
-			Message(
-				role="user",
-				content=self.prompt_generator.generate_strategy_first_time_prompt(
-					apis=apis
-				),
-			)
-		)
+        Args:
+                apis (List[str]): List of APIs available to the agent
 
-		gen_result = self.genner.ch_completion(self.chat_history + ctx_ch)
+        Returns:
+                Result[Tuple[str, ChatHistory], str]: Success with code and chat history,
+                        or error message
+        """
+        ctx_ch = ChatHistory(
+            Message(
+                role="user",
+                content=self.prompt_generator.generate_research_code_first_time_prompt(
+                    apis=apis
+                ),
+            )
+        )
 
-		if err := gen_result.err():
-			return Err(f"TradingAgent.gen_strategy_on_first, err: \n{err}")
+        gen_result = self.genner.generate_code(self.chat_history + ctx_ch)
 
-		response = gen_result.unwrap()
-		ctx_ch = ctx_ch.append(Message(role="assistant", content=response))
+        if err := gen_result.err():
+            return Err(f"TradingAgent.gen_research_code_on_first, err: \n{err}")
 
-		return Ok((response, ctx_ch))
+        processed_codes, raw_response = gen_result.unwrap()
+        ctx_ch = ctx_ch.append(Message(role="assistant", content=raw_response))
 
-	def gen_account_research_code(
-		self, role: str, time: str, metric_name: str, metric_state: str
-	) -> Result[Tuple[str, ChatHistory], str]:
-		ctx_ch = ChatHistory(
-			Message(
-				role="user",
-				content=self.prompt_generator.generate_address_research_code_prompt(
-					role=role,
-					time=time,
-					metric_name=metric_name,
-					metric_state=metric_state,
-				),
-			)
-		)
+        return Ok((processed_codes[0], ctx_ch))
 
-		gen_result = self.genner.generate_code(self.chat_history + ctx_ch)
+    def gen_research_code(
+        self,
+        notifications_str: str,
+        apis: List[str],
+        prev_strategy: str,
+        rag_summary: str,
+        before_metric_state: str,
+        after_metric_state: str,
+    ):
+        """
+        Generate research code with context.
 
-		if err := gen_result.err():
-			return Err(f"TradingAgent.gen_account_research_code, err: \n{err}")
+        Args:
+                notifications_str (str): String containing recent notifications
+                apis (List[str]): List of APIs available to the agent
+                prev_strategy (str): Description of the previous strategy
+                rag_summary (str): Summary from retrieval-augmented generation
+                before_metric_state (str): State of the metric before strategy execution
+                after_metric_state (str): State of the metric after strategy execution
 
-		processed_codes, raw_response = gen_result.unwrap()
-		ctx_ch = ctx_ch.append(Message(role="assistant", content=raw_response))
+        Returns:
+                Result[Tuple[str, ChatHistory], str]: Success with code and chat history,
+                        or error message
+        """
+        ctx_ch = ChatHistory(
+            Message(
+                role="user",
+                content=self.prompt_generator.generate_research_code_prompt(
+                    notifications_str=notifications_str,
+                    apis=apis,
+                    prev_strategy=prev_strategy,
+                    rag_summary=rag_summary,
+                    before_metric_state=before_metric_state,
+                    after_metric_state=after_metric_state,
+                ),
+            )
+        )
 
-		return Ok((processed_codes[0], ctx_ch))
+        gen_result = self.genner.generate_code(self.chat_history + ctx_ch)
 
-	def gen_trading_code(
-		self,
-		strategy_output: str,
-		address_research: str,
-		apis: List[str],
-		trading_instruments: List[str],
-	) -> Result[Tuple[str, ChatHistory], str]:
-		ctx_ch = ChatHistory(
-			Message(
-				role="user",
-				content=self.prompt_generator.generate_trading_code_prompt(
-					strategy_output=strategy_output,
-					address_research=address_research,
-					apis=apis,
-					trading_instruments=trading_instruments,
-				),
-			)
-		)
+        if err := gen_result.err():
+            return Err(f"TradingAgent.gen_research_code, err: \n{err}")
 
-		gen_result = self.genner.generate_code(self.chat_history + ctx_ch)
+        processed_codes, raw_response = gen_result.unwrap()
+        ctx_ch = ctx_ch.append(Message(role="assistant", content=raw_response))
 
-		if err := gen_result.err():
-			return Err(f"TradingAgent.gen_trading_code, err: \n{err}")
+        return Ok((processed_codes[0], ctx_ch))
 
-		processed_codes, raw_response = gen_result.unwrap()
-		ctx_ch = ctx_ch.append(Message(role="assistant", content=raw_response))
+    def gen_strategy(
+        self,
+        notifications_str: str,
+        research_output_str: str,
+        network: str,
+    ) -> Result[Tuple[str, ChatHistory], str]:
+        """
+        Generate a trading strategy.
 
-		return Ok((processed_codes[0], ctx_ch))
+        Args:
+                notifications_str (str): String containing recent notifications
+                research_output_str (str): Output from the research code
+                network (str): Blockchain network to operate on
 
-	def gen_trading_non_address_code(
-		self,
-		strategy_output: str,
-		apis: List[str],
-		trading_instruments: List[str],
-	) -> Result[Tuple[str, ChatHistory], str]:
-		ctx_ch = ChatHistory(
-			Message(
-				role="user",
-				content=self.prompt_generator.generate_trading_code_non_address_prompt(
-					strategy_output=strategy_output,
-					apis=apis,
-					trading_instruments=trading_instruments,
-				),
-			)
-		)
+        Returns:
+                Result[Tuple[str, ChatHistory], str]: Success with strategy and chat history,
+                        or error message
+        """
+        ctx_ch = ChatHistory(
+            Message(
+                role="user",
+                content=self.prompt_generator.generate_strategy_prompt(
+                    notifications_str=notifications_str,
+                    research_output_str=research_output_str,
+                    network=network,
+                ),
+            )
+        )
 
-		gen_result = self.genner.generate_code(self.chat_history + ctx_ch)
+        gen_result = self.genner.ch_completion(self.chat_history + ctx_ch)
 
-		if err := gen_result.err():
-			return Err(f"TradingAgent.gen_trading_non_address_code, err: \n{err}")
+        if err := gen_result.err():
+            return Err(f"TradingAgent.gen_strategy, err: \n{err}")
 
-		processed_codes, raw_response = gen_result.unwrap()
-		ctx_ch = ctx_ch.append(Message(role="assistant", content=raw_response))
+        response = gen_result.unwrap()
+        ctx_ch = ctx_ch.append(Message(role="assistant", content=response))
 
-		return Ok((processed_codes[0], ctx_ch))
+        return Ok((response, ctx_ch))
 
-	def gen_better_code(
-		self, prev_code: str, errors: str
-	) -> Result[Tuple[str, ChatHistory], str]:
-		ctx_ch = ChatHistory(
-			Message(
-				role="user",
-				content=self.prompt_generator.regen_code(prev_code, errors),
-			)
-		)
+    def gen_account_research_code(
+        self,
+    ) -> Result[Tuple[str, ChatHistory], str]:
+        """
+        Generate code for researching token addresses.
 
-		gen_result = self.genner.generate_code(self.chat_history + ctx_ch)
+        Returns:
+                Result[Tuple[str, ChatHistory], str]: Success with code and chat history,
+                        or error message
+        """
+        ctx_ch = ChatHistory(
+            Message(
+                role="user",
+                content=self.prompt_generator.generate_address_research_code_prompt(),
+            )
+        )
 
-		if err := gen_result.err():
-			return Err(f"TradingAgent.gen_better_code, err: \n{err}")
+        gen_result = self.genner.generate_code(self.chat_history + ctx_ch)
 
-		processed_codes, raw_response = gen_result.unwrap()
-		ctx_ch = ctx_ch.append(Message(role="assistant", content=raw_response))
+        if err := gen_result.err():
+            return Err(f"TradingAgent.gen_account_research_code, err: \n{err}")
 
-		return Ok((processed_codes[0], ctx_ch))
+        processed_codes, raw_response = gen_result.unwrap()
+        ctx_ch = ctx_ch.append(Message(role="assistant", content=raw_response))
+
+        return Ok((processed_codes[0], ctx_ch))
+
+    def gen_trading_code(
+        self,
+        strategy_output: str,
+        address_research: str,
+        apis: List[str],
+        trading_instruments: List[str],
+        agent_id: str,
+        txn_service_url: str,
+        session_id: str,
+    ) -> Result[Tuple[str, ChatHistory], str]:
+        """
+        Generate code for implementing a trading strategy.
+
+        Args:
+                strategy_output (str): Output from the strategy formulation
+                address_research (str): Results from token address research
+                apis (List[str]): List of APIs available to the agent
+                trading_instruments (List[str]): List of available trading instruments
+                agent_id (str): ID of the agent
+                txn_service_url (str): URL of the transaction service
+                session_id (str): ID of the current session
+
+        Returns:
+                Result[Tuple[str, ChatHistory], str]: Success with code and chat history,
+                        or error message
+        """
+        ctx_ch = ChatHistory(
+            Message(
+                role="user",
+                content=self.prompt_generator.generate_trading_code_prompt(
+                    strategy_output=strategy_output,
+                    address_research=address_research,
+                    apis=apis,
+                    trading_instruments=trading_instruments,
+                    agent_id=agent_id,
+                    txn_service_url=txn_service_url,
+                    session_id=session_id,
+                ),
+            )
+        )
+
+        gen_result = self.genner.generate_code(self.chat_history + ctx_ch)
+
+        if err := gen_result.err():
+            return Err(f"TradingAgent.gen_trading_code, err: \n{err}")
+
+        processed_codes, raw_response = gen_result.unwrap()
+        ctx_ch = ctx_ch.append(Message(role="assistant", content=raw_response))
+
+        return Ok((processed_codes[0], ctx_ch))
+
+    def gen_trading_non_address_code(
+        self,
+        strategy_output: str,
+        apis: List[str],
+        trading_instruments: List[str],
+        agent_id: str,
+        txn_service_url: str,
+        session_id: str,
+    ) -> Result[Tuple[str, ChatHistory], str]:
+        """
+        Generate trading code without address research.
+
+        Args:
+                strategy_output (str): Output from the strategy formulation
+                apis (List[str]): List of APIs available to the agent
+                trading_instruments (List[str]): List of available trading instruments
+                agent_id (str): ID of the agent
+                txn_service_url (str): URL of the transaction service
+                session_id (str): ID of the current session
+
+        Returns:
+                Result[Tuple[str, ChatHistory], str]: Success with code and chat history,
+                        or error message
+        """
+        ctx_ch = ChatHistory(
+            Message(
+                role="user",
+                content=self.prompt_generator.generate_trading_code_non_address_prompt(
+                    strategy_output=strategy_output,
+                    apis=apis,
+                    trading_instruments=trading_instruments,
+                    agent_id=agent_id,
+                    txn_service_url=txn_service_url,
+                    session_id=session_id,
+                ),
+            )
+        )
+
+        gen_result = self.genner.generate_code(self.chat_history + ctx_ch)
+
+        if err := gen_result.err():
+            return Err(f"TradingAgent.gen_trading_non_address_code, err: \n{err}")
+
+        processed_codes, raw_response = gen_result.unwrap()
+        ctx_ch = ctx_ch.append(Message(role="assistant", content=raw_response))
+
+        return Ok((processed_codes[0], ctx_ch))
+
+    def gen_better_code(
+        self, prev_code: str, errors: str
+    ) -> Result[Tuple[str, ChatHistory], str]:
+        """
+        Generate improved code after errors.
+
+        Args:
+                prev_code (str): The code that encountered errors
+                errors (str): Error messages from code execution
+
+        Returns:
+                Result[Tuple[str, ChatHistory], str]: Success with improved code and chat history,
+                        or error message
+        """
+        ctx_ch = ChatHistory(
+            Message(
+                role="user",
+                content=self.prompt_generator.regen_code(prev_code, errors),
+            )
+        )
+
+        gen_result = self.genner.generate_code(self.chat_history + ctx_ch)
+
+        if err := gen_result.err():
+            return Err(f"TradingAgent.gen_better_code, err: \n{err}")
+
+        processed_codes, raw_response = gen_result.unwrap()
+        ctx_ch = ctx_ch.append(Message(role="assistant", content=raw_response))
+
+        return Ok((processed_codes[0], ctx_ch))

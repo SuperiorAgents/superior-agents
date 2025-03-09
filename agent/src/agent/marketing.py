@@ -1,180 +1,257 @@
+from datetime import datetime
 import re
 from textwrap import dedent
 from typing import Dict, List, Optional, Set, Tuple
 
 from result import Err, Ok, Result
 
+from src.client.rag import RAGClient
 from src.container import ContainerManager
-from src.datatypes import StrategyData
-from src.datatypes.marketing import NewsData
 from src.db import APIDB
 from src.genner.Base import Genner
 from src.sensor.marketing import MarketingSensor
-from src.twitter import TweetData
 from src.types import ChatHistory, Message
-from src.rag import StrategyRAG
 
 
 class MarketingPromptGenerator:
-	def __init__(self, prompts: Optional[Dict[str, str]] = None):
-		"""
-		Initialize with custom prompts for each function.
+    def __init__(self, prompts: Optional[Dict[str, str]] = None):
+        """
+        Initialize with custom prompts for each function.
 
-		Args:
-			prompts: Dictionary containing custom prompts for each function
-		"""
-		if prompts is None:
-			prompts = self.get_default_prompts()
-		self._validate_prompts(prompts)
-		self.prompts = prompts
+        Args:
+                prompts: Dictionary containing custom prompts for each function
+        """
+        if prompts is None:
+            prompts = self.get_default_prompts()
+        self._validate_prompts(prompts)
+        self.prompts = prompts
 
-	def _extract_default_placeholders(self) -> Dict[str, Set[str]]:
-		"""Extract placeholders from default prompts to use as required placeholders."""
-		placeholder_pattern = re.compile(r"{([^}]+)}")
-		return {
-			prompt_name: {
-				f"{{{p}}}" for p in placeholder_pattern.findall(prompt_content)
-			}
-			for prompt_name, prompt_content in self.get_default_prompts().items()
-		}
+    def _extract_default_placeholders(self) -> Dict[str, Set[str]]:
+        """Extract placeholders from default prompts to use as required placeholders."""
+        placeholder_pattern = re.compile(r"{([^}]+)}")
+        return {
+            prompt_name: {
+                f"{{{p}}}" for p in placeholder_pattern.findall(prompt_content)
+            }
+            for prompt_name, prompt_content in self.get_default_prompts().items()
+        }
 
-	def _validate_prompts(self, prompts: Dict[str, str]) -> None:
-		"""
-		Validate prompts for required and unexpected placeholders.
+    def _validate_prompts(self, prompts: Dict[str, str]) -> None:
+        """
+        Validate prompts for required and unexpected placeholders.
 
-		Args:
-			prompts: Dictionary of prompt name to prompt content
+        Args:
+                prompts: Dictionary of prompt name to prompt content
 
-		Raises:
-			ValueError: If prompts are missing required placeholders or contain unexpected ones
-		"""
-		required_placeholders = self._extract_default_placeholders()
+        Raises:
+                ValueError: If prompts are missing required placeholders or contain unexpected ones
+        """
+        required_placeholders = self._extract_default_placeholders()
 
-		# Check all required prompts exist
-		missing_prompts = set(required_placeholders.keys()) - set(prompts.keys())
-		if missing_prompts:
-			raise ValueError(f"Missing required prompts: {missing_prompts}")
+        # Check all required prompts exist
+        missing_prompts = set(required_placeholders.keys()) - set(prompts.keys())
+        if missing_prompts:
+            raise ValueError(f"Missing required prompts: {missing_prompts}")
 
-		# Extract placeholders using regex
-		placeholder_pattern = re.compile(r"{([^}]+)}")
+        # Extract placeholders using regex
+        placeholder_pattern = re.compile(r"{([^}]+)}")
 
-		# Check each prompt for missing and unexpected placeholders
-		for prompt_name, prompt_content in prompts.items():
-			if prompt_name not in required_placeholders:
-				continue
+        # Check each prompt for missing and unexpected placeholders
+        for prompt_name, prompt_content in prompts.items():
+            if prompt_name not in required_placeholders:
+                continue
 
-			actual_placeholders = {
-				f"{{{p}}}" for p in placeholder_pattern.findall(prompt_content)
-			}
-			required_set = required_placeholders[prompt_name]
+            actual_placeholders = {
+                f"{{{p}}}" for p in placeholder_pattern.findall(prompt_content)
+            }
+            required_set = required_placeholders[prompt_name]
 
-			# Check for missing placeholders
-			missing = required_set - actual_placeholders
-			if missing:
-				raise ValueError(
-					f"Missing required placeholders in {prompt_name}: {missing}"
-				)
+            # Check for missing placeholders
+            missing = required_set - actual_placeholders
+            if missing:
+                raise ValueError(
+                    f"Missing required placeholders in {prompt_name}: {missing}"
+                )
 
-			# Check for unexpected placeholders
-			unexpected = actual_placeholders - required_set
-			if unexpected:
-				raise ValueError(
-					f"Unexpected placeholders in {prompt_name}: {unexpected}"
-				)
+            # Check for unexpected placeholders
+            unexpected = actual_placeholders - required_set
+            if unexpected:
+                raise ValueError(
+                    f"Unexpected placeholders in {prompt_name}: {unexpected}"
+                )
 
-	def generate_system_prompt(
-		self, role: str, time: str, metric_name: str, metric_state: str
-	) -> str:
-		return self.prompts["system_prompt"].format(
-			role=role, time=time, metric_name=metric_name, metric_state=metric_state
-		)
+    def generate_system_prompt(
+        self, role: str, time: str, metric_name: str, metric_state: str
+    ) -> str:
+        """
+        Generate a system prompt for the marketing agent.
 
-	def generate_strategy_first_time_prompt(self, apis: List[str]) -> str:
-		apis_str = ",\n".join(apis) if apis else self._get_default_apis_str()
+        Args:
+                role (str): The role of the agent (e.g., "influencer")
+                time (str): Time frame for the marketing goal
+                metric_name (str): Name of the metric to maximize
+                metric_state (str): Current state of the metric
 
-		return self.prompts["strategy_prompt_first"].format(apis_str=apis_str)
+        Returns:
+                str: Formatted system prompt
+        """
+        now = datetime.now()
+        today_date = now.strftime("%Y-%m-%d")
 
-	def generate_strategy_prompt(
-		self,
-		cur_environment: str,
-		prev_strategy: str,
-		prev_strategy_result: str,
-		apis: List[str],
-		rag_summary: str,
-		before_metric_state: str,
-		after_metric_state: str,
-	) -> str:
-		apis_str = ",\n".join(apis) if apis else self._get_default_apis_str()
-		return self.prompts["strategy_prompt"].format(
-			cur_environment=cur_environment,
-			prev_strategy=prev_strategy,
-			prev_strategy_result=prev_strategy_result,
-			apis_str=apis_str,
-			rag_summary=rag_summary,
-			before_metric_state=before_metric_state,
-			after_metric_state=after_metric_state,
-		)
+        return self.prompts["system_prompt"].format(
+            role=role,
+            today_date=today_date,
+            metric_name=metric_name,
+            time=time,
+            metric_state=metric_state,
+        )
 
-	def generate_marketing_code_prompt(
-		self, strategy_output: str, apis: List[str]
-	) -> str:
-		"""Generate prompt for implementing the strategy"""
-		apis_str = ",\n".join(apis) if apis else self._get_default_apis_str()
-		return self.prompts["marketing_code_prompt"].format(
-			strategy_output=strategy_output, apis_str=apis_str
-		)
+    def generate_research_code_prompt_first(self, apis: List[str]) -> str:
+        """
+        Generate a prompt for the first-time research code generation.
 
-	def regen_code(self, previous_code: str, errors: str) -> str:
-		"""Generate prompt for fixing code errors"""
-		return self.prompts["regen_code_prompt"].format(
-			errors=errors, previous_code=previous_code
-		)
+        Args:
+                apis (List[str]): List of APIs available to the agent
 
-	@staticmethod
-	def _get_default_apis_str() -> str:
-		"""Get default list of available APIs"""
-		default_apis = [
-			"Twitter API v2 (env variables TWITTER_API_KEY, TWITTER_API_SECRET)",
-			"Twitter API v1.1 (for legacy endpoints)",
-			"DuckDuckGo (using the command line `ddgr`)",
-		]
-		return ",\n".join(default_apis)
+        Returns:
+                str: Formatted prompt for first-time research code generation
+        """
+        apis_str = ",\n".join(apis) if apis else self._get_default_apis_str()
 
-	@staticmethod
-	def get_default_prompts() -> Dict[str, str]:
-		"""Get the complete set of default prompts that can be customized."""
-		return {
-			"system_prompt": dedent("""
-				You are a {role}.
-				You are also a social media influencer.
+        return self.prompts["research_code_prompt_first"].format(apis_str=apis_str)
+
+    def generate_research_code_prompt(
+        self,
+        notifications_str: str,
+        prev_strategy: str,
+        rag_summary: str,
+        before_metric_state: str,
+        after_metric_state: str,
+    ) -> str:
+        """
+        Generate a prompt for research code generation with context.
+
+        Args:
+                notifications_str (str): String containing recent notifications
+                prev_strategy (str): Description of the previous strategy
+                rag_summary (str): Summary from retrieval-augmented generation
+                before_metric_state (str): State of the metric before strategy execution
+                after_metric_state (str): State of the metric after strategy execution
+
+        Returns:
+                str: Formatted prompt for research code generation
+        """
+        return self.prompts["research_code_prompt"].format(
+            notifications_str=notifications_str,
+            prev_strategy=prev_strategy,
+            rag_summary=rag_summary,
+            before_metric_state=before_metric_state,
+            after_metric_state=after_metric_state,
+        )
+
+    def generate_strategy_prompt(
+        self,
+        notifications_str: str,
+        research_output_str: str,
+        metric_name: str,
+        time: str,
+    ) -> str:
+        """
+        Generate a prompt for strategy formulation.
+
+        Args:
+                notifications_str (str): String containing recent notifications
+                research_output_str (str): Output from the research code
+                metric_name (str): Name of the metric to maximize
+                time (str): Time frame for the marketing goal
+
+        Returns:
+                str: Formatted prompt for strategy formulation
+        """
+        return self.prompts["strategy_prompt"].format(
+            notifications_str=notifications_str,
+            research_output_str=research_output_str,
+            metric_name=metric_name,
+            time=time,
+        )
+
+    def generate_marketing_code_prompt(
+        self, strategy_output: str, apis: List[str]
+    ) -> str:
+        """Generate prompt for implementing the strategy"""
+        apis_str = ",\n".join(apis) if apis else self._get_default_apis_str()
+        return self.prompts["marketing_code_prompt"].format(
+            strategy_output=strategy_output, apis_str=apis_str
+        )
+
+    def regen_code(self, previous_code: str, errors: str) -> str:
+        """Generate prompt for fixing code errors"""
+        return self.prompts["regen_code_prompt"].format(
+            errors=errors, previous_code=previous_code
+        )
+
+    @staticmethod
+    def _get_default_apis_str() -> str:
+        """Get default list of available APIs"""
+        default_apis = [
+            "Twitter API v2 (env variables TWITTER_API_KEY, TWITTER_API_SECRET)",
+            "Twitter API v1.1 (for legacy endpoints)",
+            "DuckDuckGo (using the command line `ddgr`)",
+        ]
+        return ",\n".join(default_apis)
+
+    @staticmethod
+    def get_default_prompts() -> Dict[str, str]:
+        """Get the complete set of default prompts that can be customized."""
+        return {
+            "system_prompt": dedent(
+                """
+				You are a {role} social media influencer.
+				Today's date is {today_date}.
 				Your goal is to maximize {metric_name} within {time}
 				You are currently at {metric_state}
-			""").strip(),
-			#
-			#
-			#
-			"strategy_prompt_first": dedent("""
-				You know nothing about your environment.
-				What do you do now?
-				You can use the following APIs to do research or run code to interact with the world:
-				<APIs>
-				{apis_str}
-				</APIs>
-				Please explain your approach.
-			""").strip(),
-			#
-			#
-			#
-			"strategy_prompt": dedent("""
-				Here is what is going on in your environment right now: {cur_environment}
-				Here is what you just tried: {prev_strategy}
-				It {prev_strategy_result}
-				What do you do now?
-				You can pursue or modify your current approach or try a new one.
-				You can use the following APIs to do further research or run code to interact with the world:
-				<APIs>
-				{apis_str}
-				</APIs>
+			"""
+            ).strip(),
+            #
+            #
+            #
+            "research_code_prompt_first": dedent(
+                """
+                You know nothing about your environment.
+                What do you do now?
+                You can use the following APIs to do research:
+                <APIs>
+                {apis_str}
+                </APIs>
+                You are to print for everything, and raise every error or unexpected behavior of the program.
+                Please write code using the format below to research the state of the market.
+                ```python
+                from dotenv import load_dotenv
+                import ...
+
+                load_dotenv()
+
+                def main():
+                    ....
+                
+                main()
+                ```
+		"""
+            ).strip(),
+            #
+            #
+            #
+            "research_code_prompt": dedent(
+                """
+				Here is what is going on in your environment right now : 
+				<LatestNotification>
+				{notifications_str}
+				</LatestNotification>
+				Here is what you just tried : 
+				<PrevStrategy>
+				{prev_strategy} 
+				</PrevStrategy>
+				For reference, in the past when you encountered a similar situation you reasoned as follows:
 				<RAG>
 				{rag_summary}
 				</RAG>
@@ -185,12 +262,42 @@ class MarketingPromptGenerator:
 				<AfterStrategyExecution>
 				{after_metric_state}
 				</AfterStrategyExecution>
-				Please explain your approach.
-			""").strip(),
-			#
-			#
-			#
-			"marketing_code_prompt": dedent("""
+				You are to print for everything, and raise every error or unexpected behavior of the program.
+				Please write code using format below to research what is going on in the world and how best to react to it.
+				```python
+				from dotenv import load_dotenv
+				import ...
+
+				load_dotenv()
+
+				def main():
+					....
+				
+				main()
+				```
+			"""
+            ).strip(),
+            #
+            #
+            #
+            "strategy_prompt": dedent(
+                """
+                You just learnt the following information: 
+                <LatestNotification>
+                {notifications_str}
+                </LatestNotifications>
+                <ResearchOutput>
+                {research_output_str}
+                </ResearchOutput>
+                Decide what what you should do to help you maximize {metric_name} within {time}. 
+                Choose one action and write a short paragraph explaining how you will do it.
+		"""
+            ).strip(),
+            #
+            #
+            #
+            "marketing_code_prompt": dedent(
+                """
 				Please write code to implement this strategy:
 				<Strategy>
 				{strategy_output}
@@ -211,11 +318,13 @@ class MarketingPromptGenerator:
 
 				main()
 				```
-			""").strip(),
-			#
-			#
-			#
-			"regen_code_prompt": dedent("""
+			"""
+            ).strip(),
+            #
+            #
+            #
+            "regen_code_prompt": dedent(
+                """
 				Given these errors:
 				<Errors>
 				{errors}
@@ -237,147 +346,259 @@ class MarketingPromptGenerator:
 				main()
 				```
 				Please generate the code.
-			""").strip(),
-		}
+			"""
+            ).strip(),
+        }
 
 
 class MarketingAgent:
-	def __init__(
-		self,
-		id: str,
-		rag: StrategyRAG,
-		db: APIDB,
-		sensor: MarketingSensor,
-		genner: Genner,
-		container_manager: ContainerManager,
-		prompt_generator: MarketingPromptGenerator,
-	):
-		self.id = id
-		self.db = db
-		self.rag = rag
-		self.sensor = sensor
-		self.chat_history = ChatHistory()
-		self.genner = genner
-		self.container_manager = container_manager
-		self.prompt_generator = prompt_generator
-		self.strategy = ""
+    """Agent responsible for executing marketing strategies based on social media data and notifications."""
 
-	def reset(self) -> None:
-		self.chat_history = ChatHistory()
-		self.strategy = ""
+    def __init__(
+        self,
+        agent_id: str,
+        rag: RAGClient,
+        db: APIDB,
+        sensor: MarketingSensor,
+        genner: Genner,
+        container_manager: ContainerManager,
+        prompt_generator: MarketingPromptGenerator,
+    ):
+        """
+        Initialize the marketing agent with all required components.
 
-	def prepare_system(self, role: str, time: str, metric_name: str, metric_state: str):
-		ctx_ch = ChatHistory(
-			Message(
-				role="system",
-				content=self.prompt_generator.generate_system_prompt(
-					role=role, time=time,metric_name=metric_name, metric_state=metric_state
-				),
-			)
-		)
+        Args:
+                agent_id (str): Unique identifier for this agent
+                rag (RAGClient): Client for retrieval-augmented generation
+                db (APIDB): Database client for storing and retrieving data
+                sensor (MarketingSensor): Sensor for monitoring marketing-related metrics
+                genner (Genner): Generator for creating code and strategies
+                container_manager (ContainerManager): Manager for code execution in containers
+                prompt_generator (MarketingPromptGenerator): Generator for creating prompts
+        """
+        self.agent_id = agent_id
+        self.db = db
+        self.rag = rag
+        self.sensor = sensor
+        self.genner = genner
+        self.container_manager = container_manager
+        self.prompt_generator = prompt_generator
 
-		return ctx_ch
+        self.chat_history = ChatHistory()
 
-	def gen_strategy(
-		self,
-		cur_environment: str,
-		prev_strategy: str,
-		prev_strategy_result: str,
-		apis: List[str],
-		rag_summary: str,
-		before_metric_state: str,
-		after_metric_state: str,
-	) -> Result[Tuple[str, ChatHistory], str]:
-		ctx_ch = ChatHistory(
-			Message(
-				role="user",
-				content=self.prompt_generator.generate_strategy_prompt(
-					cur_environment=cur_environment,
-					prev_strategy=prev_strategy,
-					prev_strategy_result=prev_strategy_result,
-					apis=apis,
-					rag_summary=rag_summary,
-					before_metric_state=before_metric_state,
-					after_metric_state=after_metric_state,
-				),
-			)
-		)
+    def reset(self) -> None:
+        """Reset the agent's chat history."""
+        self.chat_history = ChatHistory()
 
-		gen_result = self.genner.ch_completion(self.chat_history + ctx_ch)
+    def prepare_system(self, role: str, time: str, metric_name: str, metric_state: str):
+        """
+        Prepare the system prompt for the agent.
 
-		if err := gen_result.err():
-			return Err(f"MarketingAgent.gen_strategy, err: \n{err}")
+        Args:
+                role (str): The role of the agent (e.g., "influencer")
+                time (str): Current time information
+                metric_name (str): Name of the metric to track
+                metric_state (str): Current state of the metric
 
-		response = gen_result.unwrap()
-		ctx_ch = ctx_ch.append(Message(role="assistant", content=response))
+        Returns:
+                ChatHistory: Chat history with the system prompt
+        """
+        ctx_ch = ChatHistory(
+            Message(
+                role="system",
+                content=self.prompt_generator.generate_system_prompt(
+                    role=role,
+                    time=time,
+                    metric_name=metric_name,
+                    metric_state=metric_state,
+                ),
+            )
+        )
 
-		return Ok((response, ctx_ch))
+        return ctx_ch
 
-	def gen_strategy_on_first(
-		self, apis: List[str]
-	) -> Result[Tuple[str, ChatHistory], str]:
-		ctx_ch = ChatHistory(
-			Message(
-				role="user",
-				content=self.prompt_generator.generate_strategy_first_time_prompt(
-					apis=apis
-				),
-			)
-		)
+    def gen_research_code_on_first(
+        self, apis: List[str]
+    ) -> Result[Tuple[str, ChatHistory], str]:
+        """
+        Generate research code for the first time.
 
-		gen_result = self.genner.ch_completion(self.chat_history + ctx_ch)
+        Args:
+                apis (List[str]): List of APIs available to the agent
 
-		if err := gen_result.err():
-			return Err(f"MarketingAgent.gen_strategy_on_first, err: \n{err}")
+        Returns:
+                Result[Tuple[str, ChatHistory], str]: Success with code and chat history,
+                        or error message
+        """
+        ctx_ch = ChatHistory(
+            Message(
+                role="user",
+                content=self.prompt_generator.generate_research_code_prompt_first(
+                    apis=apis
+                ),
+            )
+        )
 
-		response = gen_result.unwrap()
-		ctx_ch = ctx_ch.append(Message(role="assistant", content=response))
+        gen_result = self.genner.ch_completion(self.chat_history + ctx_ch)
 
-		return Ok((response, ctx_ch))
+        if err := gen_result.err():
+            return Err(f"MarketingAgent.gen_research_code_on_first, err: \n{err}")
 
-	def gen_marketing_code(
-		self,
-		strategy_output: str,
-		apis: List[str],
-	) -> Result[Tuple[str, ChatHistory], str]:
-		ctx_ch = ChatHistory(
-			Message(
-				role="user",
-				content=self.prompt_generator.generate_marketing_code_prompt(
-					strategy_output=strategy_output,
-					apis=apis,
-				),
-			)
-		)
+        response = gen_result.unwrap()
+        ctx_ch = ctx_ch.append(Message(role="assistant", content=response))
 
-		gen_result = self.genner.generate_code(self.chat_history + ctx_ch)
+        return Ok((response, ctx_ch))
 
-		if err := gen_result.err():
-			return Err(f"MarketingAgent.gen_trading_code, err: \n{err}")
+    def gen_research_code(
+        self,
+        notifications_str: str,
+        prev_strategy: str,
+        rag_summary: str,
+        before_metric_state: str,
+        after_metric_state: str,
+    ) -> Result[Tuple[str, ChatHistory], str]:
+        """
+        Generate research code with context.
 
-		processed_codes, raw_response = gen_result.unwrap()
-		ctx_ch = ctx_ch.append(Message(role="assistant", content=raw_response))
+        Args:
+                notifications_str (str): String containing recent notifications
+                prev_strategy (str): Description of the previous strategy
+                rag_summary (str): Summary from retrieval-augmented generation
+                before_metric_state (str): State of the metric before strategy execution
+                after_metric_state (str): State of the metric after strategy execution
 
-		return Ok((processed_codes[0], ctx_ch))
+        Returns:
+                Result[Tuple[str, ChatHistory], str]: Success with code and chat history,
+                        or error message
+        """
+        ctx_ch = ChatHistory(
+            Message(
+                role="user",
+                content=self.prompt_generator.generate_research_code_prompt(
+                    notifications_str=notifications_str,
+                    prev_strategy=prev_strategy,
+                    rag_summary=rag_summary,
+                    before_metric_state=before_metric_state,
+                    after_metric_state=after_metric_state,
+                ),
+            )
+        )
 
-	def gen_better_code(
-		self, prev_code: str, errors: str
-	) -> Result[Tuple[str, ChatHistory], str]:
-		ctx_ch = ChatHistory(
-			Message(
-				role="user",
-				content=self.prompt_generator.regen_code(prev_code, errors),
-			)
-		)
+        gen_result = self.genner.ch_completion(self.chat_history + ctx_ch)
 
-		gen_result = self.genner.generate_code(self.chat_history + ctx_ch)
+        if err := gen_result.err():
+            return Err(f"MarketingAgent.gen_research_code, err: \n{err}")
 
-		if err := gen_result.err():
-			return Err(
-				f"MarketingAgent.gen_better_code, failed on regenerating code, err: \n{err}"
-			)
+        response = gen_result.unwrap()
+        ctx_ch = ctx_ch.append(Message(role="assistant", content=response))
 
-		processed_codes, raw_response = gen_result.unwrap()
-		ctx_ch = ctx_ch.append(Message(role="assistant", content=raw_response))
+        return Ok((response, ctx_ch))
 
-		return Ok((processed_codes[0], ctx_ch))
+    def gen_strategy(
+        self,
+        notifications_str: str,
+        research_output_str: str,
+        metric_name: str,
+        time: str,
+    ) -> Result[Tuple[str, ChatHistory], str]:
+        """
+        Generate a marketing strategy.
+
+        Args:
+                notifications_str (str): String containing recent notifications
+                research_output_str (str): Output from the research code
+                metric_name (str): Name of the metric to maximize
+                time (str): Time frame for the marketing goal
+
+        Returns:
+                Result[Tuple[str, ChatHistory], str]: Success with strategy and chat history,
+                        or error message
+        """
+        ctx_ch = ChatHistory(
+            Message(
+                role="user",
+                content=self.prompt_generator.generate_strategy_prompt(
+                    notifications_str=notifications_str,
+                    research_output_str=research_output_str,
+                    metric_name=metric_name,
+                    time=time,
+                ),
+            )
+        )
+
+        gen_result = self.genner.ch_completion(self.chat_history + ctx_ch)
+
+        if err := gen_result.err():
+            return Err(f"MarketingAgent.gen_strategy, err: \n{err}")
+
+        response = gen_result.unwrap()
+        ctx_ch = ctx_ch.append(Message(role="assistant", content=response))
+
+        return Ok((response, ctx_ch))
+
+    def gen_marketing_code(
+        self,
+        strategy_output: str,
+        apis: List[str],
+    ) -> Result[Tuple[str, ChatHistory], str]:
+        """
+        Generate code for implementing a marketing strategy.
+
+        Args:
+                strategy_output (str): Output from the strategy formulation
+                apis (List[str]): List of APIs available to the agent
+
+        Returns:
+                Result[Tuple[str, ChatHistory], str]: Success with code and chat history,
+                        or error message
+        """
+        ctx_ch = ChatHistory(
+            Message(
+                role="user",
+                content=self.prompt_generator.generate_marketing_code_prompt(
+                    strategy_output=strategy_output,
+                    apis=apis,
+                ),
+            )
+        )
+
+        gen_result = self.genner.generate_code(self.chat_history + ctx_ch)
+
+        if err := gen_result.err():
+            return Err(f"MarketingAgent.gen_marketing_code, err: \n{err}")
+
+        processed_codes, raw_response = gen_result.unwrap()
+        ctx_ch = ctx_ch.append(Message(role="assistant", content=raw_response))
+
+        return Ok((processed_codes[0], ctx_ch))
+
+    def gen_better_code(
+        self, prev_code: str, errors: str
+    ) -> Result[Tuple[str, ChatHistory], str]:
+        """
+        Generate improved code after errors.
+
+        Args:
+                prev_code (str): The code that encountered errors
+                errors (str): Error messages from code execution
+
+        Returns:
+                Result[Tuple[str, ChatHistory], str]: Success with improved code and chat history,
+                        or error message
+        """
+        ctx_ch = ChatHistory(
+            Message(
+                role="user",
+                content=self.prompt_generator.regen_code(prev_code, errors),
+            )
+        )
+
+        gen_result = self.genner.generate_code(self.chat_history + ctx_ch)
+
+        if err := gen_result.err():
+            return Err(f"MarketingAgent.gen_better_code, err: \n{err}")
+
+        processed_codes, raw_response = gen_result.unwrap()
+        ctx_ch = ctx_ch.append(Message(role="assistant", content=raw_response))
+
+        return Ok((processed_codes[0], ctx_ch))
