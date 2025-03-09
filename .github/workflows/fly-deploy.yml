@@ -1,0 +1,52 @@
+# Github Workflow 
+name: Fly Deploy
+
+# Define when this workflow will run
+on:
+  push:
+    # Only trigger this workflow when pushing to the dev branch
+    branches:
+      - dev
+
+# List of jobs to be executed in this workflow
+jobs:
+  deploy:
+    name: Deploy single agent uptime checker
+    runs-on: ubuntu-latest
+    concurrency: deploy-group    # Ensures only one instance of this job runs at a time to prevent deployment conflicts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: deploy on fly.io
+        working-directory: single-agent-uptime-checker  # Sets the directory containing the uptime checker code and fly.toml
+        run: |
+            flyctl deploy --remote-only  # Deploys using the existing Dockerfile without building locally
+        env:
+          # Uses a GitHub secret to authenticate with Fly.io
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_UPTIME }}
+
+  deploy-rest-api:
+    name: Deploy rest-api
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: deploy on fly.io
+        working-directory: rest-api  # Directory containing the REST API code and fly.toml
+        run: |
+          flyctl deploy --remote-only  # Deploys without local build
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_REST_API }}
+
+  deploy-vault:
+    name: Deploy vault-api
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: deploy on fly.io
+        working-directory: vault  # Directory containing the vault code and fly.toml
+        run: |
+          flyctl deploy --remote-only  # Deploys without local build
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_VAULT }}
