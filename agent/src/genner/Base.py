@@ -1,183 +1,219 @@
 from abc import ABC, abstractmethod
-from typing import List, Tuple
+from typing import Callable, List, Tuple
 
-from loguru import logger
 from ollama import ChatResponse, chat
 from result import Err, Ok, Result
 
 from src.config import (
-	OllamaConfig,
+    OllamaConfig,
 )
 from src.types import ChatHistory
 
 
 class Genner(ABC):
-	def __init__(self, identifier: str):
-		self.identifier = identifier
+    def __init__(self, identifier: str, do_stream: bool):
+        """
+        Initialize the base generator class.
 
-	@abstractmethod
-	def ch_completion(self, messages: ChatHistory) -> Result[str, str]:
-		"""Generate a single strategy based on the current chat history.
+        Args:
+                identifier (str): Unique identifier for this generator
+                do_stream (bool): Whether to stream responses or not
+        """
+        self.identifier = identifier
+        self.do_stream = do_stream
 
-		Args:
-			messages (ChatHistory): Chat history
+    @abstractmethod
+    def ch_completion(self, messages: ChatHistory) -> Result[str, str]:
+        """Generate a single completion (strategy) based on the current chat history."""
+        pass
 
-		Return:
-			Ok(str): The raw response
-			Err(str): The error message
-		"""
-		pass
+    def set_do_stream(self, final_state: bool):
+        """
+        Set the streaming state of the generator.
 
-	@abstractmethod
-	def generate_code(
-		self, messages: ChatHistory, blocks: List[str] = [""]
-	) -> Result[Tuple[List[str], str], str]:
-		"""Generate a single strategy based on the current chat history.
+        Args:
+                final_state (bool): Whether to enable streaming (True) or disable it (False)
+        """
+        self.do_stream = final_state
 
-		Args:
-			messages (ChatHistory): Chat history
-			blocks: (List(str)): Will extract inside of the XML tag first before processing it into code
+    @abstractmethod
+    def generate_code(
+        self, messages: ChatHistory, blocks: List[str] = [""]
+    ) -> Result[Tuple[List[str], str], str]:
+        """Generate code (a single strategy) based on the current chat history."""
+        pass
 
-		Returns:
-			Ok:
-				str: Processed code
-				str: Raw response
-			Err:
-				List[str]: List of error messages
-		"""
-		pass
+    @abstractmethod
+    def generate_list(
+        self, messages: ChatHistory, blocks: List[str] = [""]
+    ) -> Result[Tuple[List[List[str]], str], str]:
+        """Generate a list of items based on the current chat history."""
+        pass
 
-	@abstractmethod
-	def generate_list(
-		self, messages: ChatHistory, blocks: List[str] = [""]
-	) -> Result[Tuple[List[List[str]], str], str]:
-		"""Generate a list of strategies based on the current chat history.
+    @abstractmethod
+    def extract_code(
+        self, response: str, blocks: List[str] = []
+    ) -> Result[List[str], str]:
+        """Extract code blocks from a model response."""
+        pass
 
-		Args:
-			messages (ChatHistory): Chat history
-			blocks: (List(str)): Will extract inside of the XML tag first before processing it into list
-
-		Returns:
-			Ok:
-				List[str]: Processed list
-				str: Raw response
-			Err:
-				List[str]: List of error messages
-		"""
-		pass
-
-	@abstractmethod
-	def extract_code(
-		self, response: str, blocks: List[str] = []
-	) -> Result[List[str], str]:
-		"""Extract the code from the response.
-
-		Args:
-			response (str): The raw response
-			blocks: (List(str)): Will extract inside of the XML tag first before processing it into code
-
-		Returns:
-			Ok:
-				List[str]: Processed code
-			Err:
-				List[str]: List of error messages
-		"""
-		pass
-
-	@abstractmethod
-	def extract_list(
-		self, response: str, block_name: List[str] = []
-	) -> Result[List[List[str]], str]:
-		"""Extract a list of strategies from the response.
-
-		Args:
-			response (str): The raw response
-			blocks: (List(str)): Will extract inside of the XML tag first before processing it into list
-
-		Returns:
-			Ok:
-				List[str]: List of strategies
-			Err:
-				str: List of error messages
-		"""
-		pass
+    @abstractmethod
+    def extract_list(
+        self, response: str, block_name: List[str] = []
+    ) -> Result[List[List[str]], str]:
+        """Extract lists from a model response."""
+        pass
 
 
 class OllamaGenner(Genner):
-	def __init__(self, config: OllamaConfig, identifier: str):
-		super().__init__(identifier)
+    def __init__(
+        self,
+        config: OllamaConfig,
+        identifier: str,
+        stream_fn: Callable[[str], None] | None,
+    ):
+        """
+        Initialize the Ollama-based generator.
 
-		self.config = config
+        Args:
+                config (OllamaConfig): Configuration for the Ollama model
+                identifier (str): Unique identifier for this generator
+                stream_fn (Callable[[str], None] | None): Function to call with streamed tokens,
+                        or None to disable streaming
+        """
+        super().__init__(identifier, True if stream_fn else False)
 
-	def ch_completion(self, messages: ChatHistory) -> Result[str, str]:
-		try:
-			response: ChatResponse = chat(self.config.model, messages.as_native())
+        self.config = config
+        self.stream_fn = stream_fn
 
-			assert response.message.content is not None, "No content in the response"
-		except AssertionError as e:
-			return Err(
-				f"OllamaGenner.ch_completion: response.message.content is None: {e}"
-			)
-		except Exception as e:
-			return Err(
-				f"An unexpected Ollama error while generating code with {self.config.name}, raw response: {response} occured: \n{e}"
-			)
+    def ch_completion(self, messages: ChatHistory) -> Result[str, str]:
+        """
+        Generate a completion using the Ollama API.
 
-		return Ok(response.message.content)
+        Args:
+                messages (ChatHistory): Chat history containing the conversation context
 
-	def generate_code(
-		self, messages: ChatHistory, blocks: List[str] = [""]
-	) -> Result[Tuple[List[str], str], str]:
-		try:
-			completion_result = self.ch_completion(messages)
+        Returns:
+                Result[str, str]:
+                        Ok(str): The generated text if successful
+                        Err(str): Error message if the API call fails
+        """
+        final_response = ""
+        try:
+            assert self.config.model is not None, "Model name is not provided"
 
-			if err := completion_result.err():
-				return Err(
-					f"OllamaGenner.generate_code: completion_result.is_err(): \n{err}"
-				)
+            if self.do_stream:
+                assert self.stream_fn is not None
 
-			raw_response = completion_result.unwrap()
+                for chunk in chat(self.config.model, messages.as_native(), stream=True):
+                    if chunk["message"] and chunk["message"]["content"]:
+                        token = chunk["message"]["content"]
+                        self.stream_fn(token)
+                        final_response += token
+            else:
+                response: ChatResponse = chat(self.config.model, messages.as_native())
+                assert (
+                    response.message.content is not None
+                ), "No content in the response"
 
-			extract_code_result = self.extract_code(raw_response, blocks)
+                final_response = response.message.content
+        except AssertionError as e:
+            return Err(
+                f"OllamaGenner.ch_completion: response.message.content is None: {e}"
+            )
+        except Exception as e:
+            return Err(
+                f"An unexpected Ollama error while generating code with {self.config.name}, raw response: {response} occured: \n{e}"
+            )
 
-			if err := extract_code_result.err():
-				return Err(
-					f"OllamaGenner.generate_code: extract_code_result.is_err(): \n{err}"
-				)
+        return Ok(final_response)
 
-			processed_code = extract_code_result.unwrap()
+    def generate_code(
+        self, messages: ChatHistory, blocks: List[str] = [""]
+    ) -> Result[Tuple[List[str], str], str]:
+        """
+        Generate code using the Ollama API.
+        - Getting a completion from the model
+        - Extracting code blocks from the response
 
-			return Ok((processed_code, raw_response))
-		except Exception as e:
-			return Err(
-				f"An unexpected error while generating code with {self.config.name}, raw response: {raw_response} occured: \n{e}"
-			)
+        Args:
+                messages (ChatHistory): Chat history containing the conversation context
+                blocks (List[str]): XML tag names to extract content from before processing into code
 
-	def generate_list(
-		self, messages: ChatHistory, blocks: List[str] = [""]
-	) -> Result[Tuple[List[List[str]], str], str]:
-		try:
-			completion_result = self.ch_completion(messages)
+        Returns:
+                Result[Tuple[List[str], str], str]:
+                        Ok(Tuple[List[str], str]): Tuple containing:
+                                - List[str]: Processed code blocks
+                                - str: Raw response from the model
+                        Err(str): Error message if generation failed
+        """
+        try:
+            completion_result = self.ch_completion(messages)
 
-			if err := completion_result.err():
-				return Err(
-					f"OllamaGenner.generate_list: completion_result.is_err(): \n{err}"
-				)
+            if err := completion_result.err():
+                return Err(
+                    f"OllamaGenner.generate_code: completion_result.is_err(): \n{err}"
+                )
 
-			raw_response = completion_result.unwrap()
+            raw_response = completion_result.unwrap()
 
-			extract_list_result = self.extract_list(raw_response, blocks)
+            extract_code_result = self.extract_code(raw_response, blocks)
 
-			if err := extract_list_result.err():
-				return Err(
-					f"OllamaGenner.generate_list: extract_list_result.is_err(): \n{err}"
-				)
+            if err := extract_code_result.err():
+                return Err(
+                    f"OllamaGenner.generate_code: extract_code_result.is_err(): \n{err}"
+                )
 
-			extracted_list = extract_list_result.unwrap()
+            processed_code = extract_code_result.unwrap()
 
-			return Ok((extracted_list, raw_response))
+            return Ok((processed_code, raw_response))
+        except Exception as e:
+            return Err(
+                f"An unexpected error while generating code with {self.config.name}, raw response: {raw_response} occured: \n{e}"
+            )
 
-		except Exception as e:
-			return Err(
-				f"An unexpected error while generating list with {self.config.name}, raw response: {raw_response} occured: \n{e}"
-			)
+    def generate_list(
+        self, messages: ChatHistory, blocks: List[str] = [""]
+    ) -> Result[Tuple[List[List[str]], str], str]:
+        """
+        Generate lists using the Ollama API.
+        - Getting a completion from the model
+        - Extracting lists from the response
+
+        Args:
+                messages (ChatHistory): Chat history containing the conversation context
+                blocks (List[str]): XML tag names to extract content from before processing into lists
+
+        Returns:
+                Result[Tuple[List[List[str]], str], str]:
+                        Ok(Tuple[List[List[str]], str]): Tuple containing:
+                                - List[List[str]]: Processed lists of items
+                                - str: Raw response from the model
+                        Err(str): Error message if generation failed
+        """
+        try:
+            completion_result = self.ch_completion(messages)
+
+            if err := completion_result.err():
+                return Err(
+                    f"OllamaGenner.generate_list: completion_result.is_err(): \n{err}"
+                )
+
+            raw_response = completion_result.unwrap()
+
+            extract_list_result = self.extract_list(raw_response, blocks)
+
+            if err := extract_list_result.err():
+                return Err(
+                    f"OllamaGenner.generate_list: extract_list_result.is_err(): \n{err}"
+                )
+
+            extracted_list = extract_list_result.unwrap()
+
+            return Ok((extracted_list, raw_response))
+
+        except Exception as e:
+            return Err(
+                f"An unexpected error while generating list with {self.config.name}, raw response: {raw_response} occured: \n{e}"
+            )
+
