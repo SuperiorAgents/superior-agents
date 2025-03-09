@@ -20,7 +20,7 @@ def unassisted_flow(
 ):
     """
     Execute an unassisted marketing workflow with the marketing agent.
-    - Orchestrates the complete marketing workflow. 
+    - Orchestrates the complete marketing workflow.
     - Handles retries for failed steps and saves the results to the database.
 
     Args:
@@ -40,7 +40,7 @@ def unassisted_flow(
     agent.reset()
     logger.info("Reset agent")
     logger.info("Starting on assisted trading flow")
-
+    # Capture initial metric state to compare with end state after execution
     start_metric_state = str(agent.sensor.get_metric_fn(metric_name)())
 
     try:
@@ -57,7 +57,7 @@ def unassisted_flow(
     except (AssertionError, Exception) as e:
         if isinstance(e, Exception):
             logger.warning(f"Error retrieving RAG strategy: {str(e)}")
-
+        # Fallback values when RAG retrieval fails
         rag_summary = "Unable to retrieve a relevant strategy from RAG handler..."
         rag_before_metric_state = (
             "Unable to retrieve a relevant strategy from RAG handler..."
@@ -80,6 +80,7 @@ def unassisted_flow(
     research_code_success = False
     err_acc = ""
     regen = False
+    # Retry loop for research code generation - maximum 3 attempts
     for i in range(3):
         try:
             if regen:
@@ -132,6 +133,7 @@ def unassisted_flow(
     strategy_success = False
     err_acc = ""
     regen = False
+    # Strategy generation with retry mechanism
     for i in range(3):
         try:
             if regen:
@@ -174,6 +176,7 @@ def unassisted_flow(
     marketing_code_success = False
     err_acc = ""
     regen = False
+    # Generate and execute marketing code based on strategy
     for i in range(3):
         try:
             if regen:

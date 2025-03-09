@@ -23,7 +23,7 @@ def assisted_flow(
     summarizer: Callable[[List[str]], str],
 ):
     """
-    Execute an assisted trading workflow with the trading agent. 
+    Execute an assisted trading workflow with the trading agent.
     - Orchestrates the complete trading workflow.
     - Handles retries for failed steps and saves the results to the database.
 
@@ -47,7 +47,7 @@ def assisted_flow(
     agent.reset()
     logger.info("Reset agent")
     logger.info("Starting on assisted trading flow")
-
+    # Store initial metric state to measure performance of trading strategy
     start_metric_state = str(agent.sensor.get_metric_fn(metric_name)())
 
     try:
@@ -64,7 +64,7 @@ def assisted_flow(
     except (AssertionError, Exception) as e:
         if isinstance(e, Exception):
             logger.warning(f"Error retrieving RAG strategy: {str(e)}")
-
+        # Set default values when RAG retrieval fails to ensure workflow continues
         rag_summary = "Unable to retrieve a relevant strategy from RAG handler..."
         rag_before_metric_state = (
             "Unable to retrieve a relevant strategy from RAG handler..."
@@ -90,6 +90,7 @@ def assisted_flow(
     err_acc = ""
     regen = False
     success = False
+    # Generate and execute market research code with retry mechanism
     for i in range(3):
         try:
             if regen:
@@ -143,6 +144,7 @@ def assisted_flow(
     err_acc = ""
     regen = False
     success = False
+    # Generate trading strategy based on research findings
     for i in range(3):
         try:
             if regen:
@@ -183,6 +185,7 @@ def assisted_flow(
     err_acc = ""
     regen = False
     success = False
+    # Research blockchain addresses - more retries (10) due to complexity
     for i in range(10):
         try:
             if regen:
@@ -231,6 +234,7 @@ def assisted_flow(
     code_output = ""
     success = False
     regen = False
+    #  Generate and execute actual trading code based on strategy and research
     for i in range(3):
         try:
             if regen:
