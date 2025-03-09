@@ -368,62 +368,6 @@ def oneInchQuote(request: QuoteRequest):
     return QuoteResponse(amount_out=response_json["dstAmount"])
 
 
-# def okxQuote(request: QuoteRequest):
-#     # OKX API credentials
-#     secret_key = settings.OKX_SECRET_KEY
-
-#     # Get ISO timestamp
-#     timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
-
-#     # Construct the request path with query parameters
-#     method = "GET"
-#     request_path = f"/api/v5/dex/aggregator/quote?amount={request.amount_in}&chainId=1&toTokenAddress={request.token_out}&fromTokenAddress={request.token_in}"
-
-#     # Create signature
-#     message = timestamp + method + request_path
-#     signature = base64.b64encode(
-#         hmac.new(
-#             secret_key.encode('utf-8'),
-#             message.encode('utf-8'),
-#             hashlib.sha256
-#         ).digest()
-#     ).decode('utf-8')
-
-#     # Construct headers
-#     headers = {
-#         'Content-Type': 'application/json',
-#         'OK-ACCESS-KEY': settings.OKX_API_KEY ,
-#         'OK-ACCESS-SIGN': signature,
-#         'OK-ACCESS-TIMESTAMP': timestamp,
-#         'OK-ACCESS-PASSPHRASE': settings.OKX_PASSPHRASE
-#     }
-
-#     # Make the request
-#     response = requests.get(
-#         f"https://www.okx.com{request_path}",
-#         headers=headers
-#     )
-
-#     if response.status_code != 200:
-#         print(response.json())
-#         return JSONResponse(status_code=response.status_code, content=response.json())
-
-#     response_json = response.json()
-#     print(json.dumps(response_json, indent=4))  # Debug print
-
-#     # Check if response is successful and has data
-#     if response_json.get("code") == "0" and response_json.get("data"):
-#         data = response_json["data"][0]  # Get first item from data array
-#         return QuoteResponse(
-#             amount_out=data["toTokenAmount"]
-#         )
-#     else:
-#         return JSONResponse(
-#             status_code=400,
-#             content={"error": "Invalid response from OKX", "details": response_json}
-#         )
-
-
 @app.post("/api/v1/quote")
 async def get_quote(
     request: QuoteRequest,
