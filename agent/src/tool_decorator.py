@@ -2,9 +2,10 @@ import inspect
 from typing import Dict, Any, Callable, List
 from functools import wraps
 
+
 class ToolRegistry:
     """Class-level tool registry with instance binding"""
-    
+
     TYPE_MAP = {
         int: "integer",
         float: "number",
@@ -12,7 +13,7 @@ class ToolRegistry:
         bool: "boolean",
         list: "array",
         dict: "object",
-        type(None): "null"
+        type(None): "null",
     }
 
     def __init__(self, namespace: str):
@@ -29,10 +30,11 @@ class ToolRegistry:
         @wraps(func)
         def wrapper(instance, *args, **kwargs):
             return func(instance, *args, **kwargs)
-            
+
         return wrapper
 
     def get_all(self) -> List[Dict]:
+        """Retrieves all the tools stored in the self._tools dictionary."""
         return list(self._tools.values())
 
     def execute(self, instance, name: str, *args, **kwargs):

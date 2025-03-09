@@ -1,10 +1,10 @@
 # docker-compose.yml
-version: '3.8'
+version: "3.8"
 
 services:
   agent-executor:
-    container_name: agent_executor
-    hostname: agent_executor
+    container_name: agent-executor
+    hostname: agent-executor
     build: .
     environment:
       - PYTHONUNBUFFERED=1

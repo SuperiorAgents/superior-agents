@@ -1,9 +1,8 @@
 import re
-from typing import List, Tuple
+from typing import Callable, List, Tuple
 
 import yaml
-from loguru import logger
-from anthropic import Anthropic
+from anthropic import Anthropic, TextEvent
 from result import Err, Ok, Result
 
 from src.config import ClaudeConfig
@@ -14,28 +13,74 @@ from .Base import Genner
 
 
 class ClaudeGenner(Genner):
-    def __init__(self, client: Anthropic, config: ClaudeConfig):
-        super().__init__("claude")
+    def __init__(
+        self,
+        client: Anthropic,
+        config: ClaudeConfig,
+        stream_fn: Callable[[str], None] | None,
+    ):
+        """
+        Initialize the Claude-based generator.
+
+        Args:
+                client (Anthropic): Anthropic API client
+                config (ClaudeConfig): Configuration for the Claude model
+                stream_fn (Callable[[str], None] | None): Function to call with streamed tokens,
+                        or None to disable streaming
+        """
+        super().__init__("claude", True if stream_fn else False)
         self.client = client
         self.config = config
+        self.stream_fn = stream_fn
 
     def ch_completion(self, messages: ChatHistory) -> Result[str, str]:
+        """
+        Generate a completion using the Claude API.
+        - send the chat history to the Claude API and retrieves a completion response.
+        - optional streaming support. 
+        - Separates the system message from the rest of the chat history.
+
+        Args:
+                messages (ChatHistory): Chat history containing the conversation context
+
+        Returns:
+                Result[str, str]:
+                        Ok(str): The generated text if successful
+                        Err(str): Error message if the API call fails
+        """
         system_message = messages.messages[0]
         assert system_message.role == "system"
         system = system_message.content
         ch = ChatHistory(messages.messages[1:])
 
+        final_response = ""
+
         try:
-            response = self.client.messages.create(
-                model=self.config.model,  # e.g. "claude-3-opus-20240229"
-                messages=ch.as_native(),  # type: ignore
-                max_tokens=self.config.max_tokens,
-                system=system
-            )
+            if self.do_stream:
+                assert self.stream_fn is not None
 
-            completion_str = response.content[0].text # type: ignore
-            assert isinstance(completion_str, str)
+                with self.client.messages.stream(
+                    model="claude-3-opus-20240229",
+                    max_tokens=1024,
+                    messages=ch.as_native(),  # type: ignore
+                    system=system,
+                ) as stream:
+                    for chunk in stream:
+                        if isinstance(chunk, TextEvent):
+                            token = chunk.text
+                            final_response += token
+                            self.stream_fn(token)
+            else:
+                response = self.client.messages.create(
+                    model=self.config.model,  # e.g. "claude-3-opus-20240229"
+                    messages=ch.as_native(),  # type: ignore
+                    max_tokens=self.config.max_tokens,
+                    system=system,
+                )
 
+                final_response = response.content[0].text  # type: ignore
+
+            assert isinstance(final_response, str)
         except AssertionError as e:
             return Err(f"ClaudeGenner.ch_completion: {e}")
         except Exception as e:
@@ -43,11 +88,27 @@ class ClaudeGenner(Genner):
                 f"An unexpected Claude API error while generating code with {self.config.name}, occurred: \n{e}"
             )
 
-        return Ok(completion_str)
+        return Ok(final_response)
 
     def generate_code(
         self, messages: ChatHistory, blocks: List[str] = [""]
     ) -> Result[Tuple[List[str], str], str]:
+        """
+        Generate code using the Claude API.
+        - Getting a completion from the model
+        - Extracting code blocks from the response
+
+        Args:
+                messages (ChatHistory): Chat history containing the conversation context
+                blocks (List[str]): XML tag names to extract content from before processing into code
+
+        Returns:
+                Result[Tuple[List[str], str], str]:
+                        Ok(Tuple[List[str], str]): Tuple containing:
+                                - List[str]: Processed code blocks
+                                - str: Raw response from the model
+                        Err(str): Error message if generation failed
+        """
         try:
             completion_result = self.ch_completion(messages)
 
@@ -76,6 +137,22 @@ class ClaudeGenner(Genner):
     def generate_list(
         self, messages: ChatHistory, blocks: List[str] = [""]
     ) -> Result[Tuple[List[List[str]], str], str]:
+        """
+        Generate lists using the Claude API.
+        - Getting a completion from the model
+        - Extracting lists from the response
+
+        Args:
+                messages (ChatHistory): Chat history containing the conversation context
+                blocks (List[str]): XML tag names to extract content from before processing into lists
+
+        Returns:
+                Result[Tuple[List[List[str]], str], str]:
+                        Ok(Tuple[List[List[str]], str]): Tuple containing:
+                                - List[List[str]]: Processed lists of items
+                                - str: Raw response from the model
+                        Err(str): Error message if generation failed
+        """
         try:
             completion_result = self.ch_completion(messages)
 
@@ -103,6 +180,18 @@ class ClaudeGenner(Genner):
 
     @staticmethod
     def extract_code(response: str, blocks: List[str] = [""]) -> Result[List[str], str]:
+        """
+        Extract code blocks from a Claude model response.
+
+        Args:
+                response (str): The raw response from the model
+                blocks (List[str]): XML tag names to extract content from before processing into code
+
+        Returns:
+                Result[List[str], str]:
+                        Ok(List[str]): List of extracted code blocks
+                        Err(str): Error message if extraction failed
+        """
         extracts: List[str] = []
 
         for block in blocks:
@@ -133,6 +222,18 @@ class ClaudeGenner(Genner):
     def extract_list(
         response: str, blocks: List[str] = [""]
     ) -> Result[List[List[str]], str]:
+        """
+        Extract lists from a Claude model response.
+
+        Args:
+                response (str): The raw response from the model
+                blocks (List[str]): XML tag names to extract content from before processing into lists
+
+        Returns:
+                Result[List[List[str]], str]:
+                        Ok(List[List[str]]): List of extracted lists
+                        Err(str): Error message if extraction failed
+        """
         extracts: List[List[str]] = []
 
         for block in blocks:
@@ -157,3 +258,4 @@ class ClaudeGenner(Genner):
                 )
 
         return Ok(extracts)
+

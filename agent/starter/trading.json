@@ -1,19 +1,19 @@
 {
-	"agent_id": "testing_trading_agent",
-	"model": "claude",
-	"role": "degen shitcoin-maxxing",
-	"time": "1h",
-	"metric_name": "wallet",
-	"research_tools": ["CoinGecko", "DuckDuckGo", "Etherscan", "Infura"],
-	"prompts": {
-        "system_prompt": "You are a {role} crypto trader\nYour goal is to maximize {metric_name} within {time}\nYou are currently at {metric_state}",
-        "strategy_prompt_first": "You know nothing about your environment.\nWhat do you do now?\nYou can use the following API to do research or run code to interact with the worlds :\n<APIs>\n{apis_str}\n</APIs>\nPlease explain your approach.",
-        "strategy_prompt": "Here is what is going on in your environment right now :{cur_environment}.\nHere is what you just tried :{prev_strategy}.\nIt {prev_strategy_result}.\nWhat do you do now?\nYou can pursue or modify your current approach or try a new one.\nYou can use the following APIs to do further research or run code to interact with the world :\n<APIs>\n{apis_str}\n</APIs>\nFor reference, in the past when you encountered a similar situation you reasoned as follows:\n<RAG>\n{rag_summary}\n</RAG>\nThe result of this RAG was\n<BeforeStrategyExecution>\n{before_metric_state}\n</BeforeStrategyExecution>\n<AfterStrategyExecution>\n{after_metric_state}\n</AfterStrategyExecution>\nPlease explain your approach.",
-        "address_research_code_prompt": "You are a {role} crypto trader\nYour goal is to maximize {metric_name} within {time}\nYou are currently at {metric_state}\nFor the coins mentioned above, please generate some code to get the actual address of those tokens or the wrapped equivalent.\nUse the Dexscreener API to find the token contract addresses if you do not know them.\nYou are to generate like the format below:\n```python\nfrom dotenv import load_dotenv\nimport ...\n\nload_dotenv()\n\ndef main():\n\t....\n\nmain()\n```\nPlease generate the code, and make sure the output are short and concise, you only need to show list of token and its address.",
-        "trading_code_prompt": "Please write code to implement this strategy : \n<Strategy>\n{strategy_output}\n</Strategy>\nYou have the following APIs : \n<APIs>\n{apis_str}\n</APIs>\nYou may use the information on these contract addresses :\n<AddressResearch>\n{address_research}\n</AddressResearch>\nAnd you may use these local service as trading instruments to perform your task:\n<TradingInstruments>\n{trading_instruments_str}\n</TradingInstruments>\nFormat the code as follows:\n```python\nfrom dotenv import load_dotenv\nimport ...\n\ndef main():\n\t....\n\nmain()\n```",
-        "trading_code_non_address_prompt": "Please write code to implement this strategy : \n<Strategy>\n{strategy_output}\n</Strategy>\nYou have the following APIs : \n<APIs>\n{apis_str}\n</APIs>\nAnd you may use these local service as trading instruments to perform your task:\n<TradingInstruments>\n{trading_instruments_str}\n</TradingInstruments>\nFormat the code as follows:\n```python\nfrom dotenv import load_dotenv\nimport ...\n\ndef main():\n\t....\n\nmain()\n```",
-        "regen_code_prompt": "Given this errors\n<Errors>\n{errors}\n</Errors>\nAnd the code it's from\n<Code>\n{previous_code}\n</Code>\nYou are to generate code that fixes the error but doesnt stray too much from the original code, in this format.\n```python\nfrom dotenv import load_dotenv\nimport ...\n\nload_dotenv()\n\ndef main():\n\t....\n\nmain()\n```\nPlease generate the code."
-    },
-	"notifications": ["twitter"],
-	"trading_instruments": ["spot"]
+  "agent_id": "testing_trading_agent",
+  "model": "claude",
+  "role": "degen shitcoin-maxxing",
+  "time": "1h",
+  "metric_name": "wallet",
+  "research_tools": ["CoinGecko", "DuckDuckGo", "Etherscan", "Infura"],
+  "prompts": {
+    "system_prompt": "You are a {role} crypto trader\nYour goal is to maximize {metric_name} within {time}\nYou are currently at {metric_state}",
+    "strategy_prompt_first": "You know nothing about your environment.\nWhat do you do now?\nYou can use the following API to do research or run code to interact with the worlds :\n<APIs>\n{apis_str}\n</APIs>\nPlease explain your approach.",
+    "strategy_prompt": "Here is what is going on in your environment right now :{cur_environment}.\nHere is what you just tried :{prev_strategy}.\nIt {prev_strategy_result}.\nWhat do you do now?\nYou can pursue or modify your current approach or try a new one.\nYou can use the following APIs to do further research or run code to interact with the world :\n<APIs>\n{apis_str}\n</APIs>\nFor reference, in the past when you encountered a similar situation you reasoned as follows:\n<RAG>\n{rag_summary}\n</RAG>\nThe result of this RAG was\n<BeforeStrategyExecution>\n{before_metric_state}\n</BeforeStrategyExecution>\n<AfterStrategyExecution>\n{after_metric_state}\n</AfterStrategyExecution>\nPlease explain your approach.",
+    "address_research_code_prompt": "You are a {role} crypto trader\nYour goal is to maximize {metric_name} within {time}\nYou are currently at {metric_state}\nFor the coins mentioned above, please generate some code to get the actual address of those tokens or the wrapped equivalent.\nUse the Dexscreener API to find the token contract addresses if you do not know them.\nYou are to generate like the format below:\n```python\nfrom dotenv import load_dotenv\nimport ...\n\nload_dotenv()\n\ndef main():\n\t....\n\nmain()\n```\nPlease generate the code, and make sure the output are short and concise, you only need to show list of token and its address.",
+    "trading_code_prompt": "Please write code to implement this strategy : \n<Strategy>\n{strategy_output}\n</Strategy>\nYou have the following APIs : \n<APIs>\n{apis_str}\n</APIs>\nYou may use the information on these contract addresses :\n<AddressResearch>\n{address_research}\n</AddressResearch>\nAnd you may use these local service as trading instruments to perform your task:\n<TradingInstruments>\n{trading_instruments_str}\n</TradingInstruments>\nFormat the code as follows:\n```python\nfrom dotenv import load_dotenv\nimport ...\n\ndef main():\n\t....\n\nmain()\n```",
+    "trading_code_non_address_prompt": "Please write code to implement this strategy : \n<Strategy>\n{strategy_output}\n</Strategy>\nYou have the following APIs : \n<APIs>\n{apis_str}\n</APIs>\nAnd you may use these local service as trading instruments to perform your task:\n<TradingInstruments>\n{trading_instruments_str}\n</TradingInstruments>\nFormat the code as follows:\n```python\nfrom dotenv import load_dotenv\nimport ...\n\ndef main():\n\t....\n\nmain()\n```",
+    "regen_code_prompt": "Given this errors\n<Errors>\n{errors}\n</Errors>\nAnd the code it's from\n<Code>\n{previous_code}\n</Code>\nYou are to generate code that fixes the error but doesnt stray too much from the original code, in this format.\n```python\nfrom dotenv import load_dotenv\nimport ...\n\nload_dotenv()\n\ndef main():\n\t....\n\nmain()\n```\nPlease generate the code."
+  },
+  "notifications": ["twitter"],
+  "trading_instruments": ["spot"]
 }

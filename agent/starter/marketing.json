@@ -1,16 +1,16 @@
 {
-	"agent_id": "testing_marketing_agent",
-	"model": "claude",
-	"role": "degen shitcoin-maxxing",
-	"time": "1h",
-	"metric_name": "followers",
-	"research_tools": ["CoinGecko", "DuckDuckGo", "Etherscan", "Infura"],
-	"notifications": ["twitter"],
-	"prompts": {
-        "system_prompt": "You are a {role}.\nYou are also a social media influencer.\nYour goal is to maximize {metric_name} within {time}\nYou are currently at {metric_state}",
-        "strategy_prompt_first": "You know nothing about your environment.\nWhat do you do now?\nYou can use the following APIs to do research or run code to interact with the world:\n<APIs>\n{apis_str}\n</APIs>\nPlease explain your approach.",
-        "strategy_prompt": "Here is what is going on in your environment right now: {cur_environment}\nHere is what you just tried: {prev_strategy}\nIt {prev_strategy_result}\nWhat do you do now?\nYou can pursue or modify your current approach or try a new one.\nYou can use the following APIs to do further research or run code to interact with the world:\n<APIs>\n{apis_str}\n</APIs>\n<RAG>\n{rag_summary}\n</RAG>\nThe result of this RAG was\n<BeforeStrategyExecution>\n{before_metric_state}\n</BeforeStrategyExecution>\n<AfterStrategyExecution>\n{after_metric_state}\n</AfterStrategyExecution>\nPlease explain your approach.",
-        "marketing_code_prompt": "Please write code to implement this strategy:\n<Strategy>\n{strategy_output}\n</Strategy>\nYou have the following APIs:\n<APIs>\n{apis_str}\n</APIs>\nFormat the code as follows:\n```python\nfrom dotenv import load_dotenv\nimport ...\n\nload_dotenv()\n\ndef main():\n\t....\n\nmain()\n```",
-        "regen_code_prompt": "Given these errors:\n<Errors>\n{errors}\n</Errors>\nAnd the code it's from:\n<Code>\n{previous_code}\n</Code>\nYou are to generate code that fixes the error but doesn't stray too much from the original code, in this format:\n```python\nfrom dotenv import load_dotenv\nimport ...\n\nload_dotenv()\n\ndef main():\n\t....\n\nmain()\n```\nPlease generate the code."
-    }
+  "agent_id": "testing_marketing_agent",
+  "model": "claude",
+  "role": "degen shitcoin-maxxing",
+  "time": "1h",
+  "metric_name": "followers",
+  "research_tools": ["CoinGecko", "DuckDuckGo", "Etherscan", "Infura"],
+  "notifications": ["twitter"],
+  "prompts": {
+    "system_prompt": "You are a {role}.\nYou are also a social media influencer.\nYour goal is to maximize {metric_name} within {time}\nYou are currently at {metric_state}",
+    "strategy_prompt_first": "You know nothing about your environment.\nWhat do you do now?\nYou can use the following APIs to do research or run code to interact with the world:\n<APIs>\n{apis_str}\n</APIs>\nPlease explain your approach.",
+    "strategy_prompt": "Here is what is going on in your environment right now: {cur_environment}\nHere is what you just tried: {prev_strategy}\nIt {prev_strategy_result}\nWhat do you do now?\nYou can pursue or modify your current approach or try a new one.\nYou can use the following APIs to do further research or run code to interact with the world:\n<APIs>\n{apis_str}\n</APIs>\n<RAG>\n{rag_summary}\n</RAG>\nThe result of this RAG was\n<BeforeStrategyExecution>\n{before_metric_state}\n</BeforeStrategyExecution>\n<AfterStrategyExecution>\n{after_metric_state}\n</AfterStrategyExecution>\nPlease explain your approach.",
+    "marketing_code_prompt": "Please write code to implement this strategy:\n<Strategy>\n{strategy_output}\n</Strategy>\nYou have the following APIs:\n<APIs>\n{apis_str}\n</APIs>\nFormat the code as follows:\n```python\nfrom dotenv import load_dotenv\nimport ...\n\nload_dotenv()\n\ndef main():\n\t....\n\nmain()\n```",
+    "regen_code_prompt": "Given these errors:\n<Errors>\n{errors}\n</Errors>\nAnd the code it's from:\n<Code>\n{previous_code}\n</Code>\nYou are to generate code that fixes the error but doesn't stray too much from the original code, in this format:\n```python\nfrom dotenv import load_dotenv\nimport ...\n\nload_dotenv()\n\ndef main():\n\t....\n\nmain()\n```\nPlease generate the code."
+  }
 }
