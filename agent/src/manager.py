@@ -8,13 +8,7 @@ import json
 
 
 class ManagerClient:
-    """
-    Client for interacting with the manager service to handle session data and communication.
-
-    This class provides functionality to push tokens to a session and fetch frontend data
-    from the manager service. It handles communication with the service's API endpoints
-    and processes the responses.
-    """
+    """Client for interacting with the manager service to handle session data and communication."""
 
     def __init__(self, base_url: str, session_id: str):
         """
@@ -31,9 +25,6 @@ class ManagerClient:
         """
         Push a token to the session as a log message.
 
-        This method sends a POST request to the manager service to add a token
-        to the specified session's logs.
-
         Args:
                 token (str): The token to push to the session
         """
@@ -44,11 +35,6 @@ class ManagerClient:
     def fetch_fe_data(self, type: str):
         """
         Fetch frontend data for the specified agent type.
-
-        This method retrieves session logs from the manager service, extracts
-        configuration data from the logs, and combines it with default values.
-        It handles different agent types (trading or marketing) and ensures all
-        necessary prompts are available.
 
         Args:
                 type (str): The type of agent ("trading" or "marketing")

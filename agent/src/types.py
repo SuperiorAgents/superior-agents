@@ -8,10 +8,6 @@ class Message:
 	"""
 	Represents a single message in a conversation between different roles.
 	
-	This class encapsulates a message with its role (e.g., 'system', 'user', 'assistant'),
-	content, and optional metadata. It provides methods to convert between native
-	dictionary format and Message objects.
-	
 	Attributes:
 		role (str): The role of the message sender (e.g., 'system', 'user', 'assistant')
 		content (str): The text content of the message
@@ -78,13 +74,7 @@ class Message:
 
 
 class ChatHistory:
-	"""
-	Represents a conversation history as a sequence of messages.
-	
-	This class manages a list of Message objects and provides methods to manipulate
-	and access the conversation history. It supports operations like appending messages,
-	combining histories, and converting between native format and ChatHistory objects.
-	"""
+	"""Represents a conversation history as a sequence of messages."""
 	def __init__(self, messages: List[Message] | Message = []):
 		"""
 		Initialize a ChatHistory with a list of messages or a single message.

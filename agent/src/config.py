@@ -5,12 +5,7 @@ from dataclasses import dataclass
 
 @dataclass
 class BaseLLMConfig(ABC):
-    """
-    Abstract base class for language model configurations.
-
-    This class serves as a base for all specific language model configurations,
-    providing a common type for configuration objects.
-    """
+    """Abstract base class for language model configurations."""
 
     pass
 

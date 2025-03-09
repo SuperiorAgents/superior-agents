@@ -15,13 +15,7 @@ from src.helper import timeout
 
 
 class ContainerManager:
-    """
-    Manages Docker containers for executing code in isolated environments.
-
-    This class provides functionality to create, access, and interact with Docker containers.
-    It handles container creation if the specified container doesn't exist, and provides
-    methods to write and execute code within the container.
-    """
+    """Manages Docker containers for executing code in isolated environments."""
 
     def __init__(
         self,

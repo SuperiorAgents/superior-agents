@@ -19,9 +19,6 @@ class TweetData:
     """
     Data class representing a tweet with its essential attributes.
 
-    This class encapsulates the core information about a tweet, including
-    its ID, content, creation time, author information, and thread context.
-
     Attributes:
             id (str | None): The unique identifier of the tweet
             text (str | None): The content/text of the tweet
@@ -66,13 +63,7 @@ def is_account_data_list(xs: List[Any]) -> TypeGuard[List[AccountData]]:
 
 
 class TweepyTwitterClient:
-    """
-    Client for interacting with the Twitter API using Tweepy.
-
-    This class provides a comprehensive interface to Twitter's functionality,
-    including posting tweets, replying, liking, retweeting, and retrieving
-    information about tweets and accounts.
-    """
+    """Client for interacting with the Twitter API using Tweepy."""
 
     def __init__(self, client: tweepy.Client, api_client: tweepy.API):
         """
@@ -211,9 +202,6 @@ class TweepyTwitterClient:
     ) -> Result[TweetData, str]:
         """
         Create a quote tweet referencing another tweet with added commentary.
-
-        This method creates a new tweet that quotes (references) an existing tweet
-        and adds the specified text as commentary.
 
         Args:
                 text (str): The commentary text to add to the quote tweet
