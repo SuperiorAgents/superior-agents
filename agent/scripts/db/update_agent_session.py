@@ -11,9 +11,7 @@ DB_SERVICE_URL = os.getenv("DB_SERVICE_URL")
 
 
 def update_agent_sessions(agent_id, session_id):
-    """
-    This function updates the trade count for a specific agent session.
-    """
+    """This function updates the trade count for a specific agent session."""
     # Set authentication headers for the API request
     headers = {"x-api-key": DB_SERVICE_API_KEY}
     # Prepare data payload with agent and session identifiers

@@ -101,9 +101,7 @@ DEFAULT_HEADERS = {"x-api-key": DB_SERVICE_API_KEY, "Content-Type": "application
 def setup_trading_agent_flow(
     fe_data: dict, session_id: str, agent_id: str, assisted=True
 ) -> Tuple[TradingAgent, List[str], Callable[[StrategyData | None, str | None], None]]:
-    """
-    This function initializes a trading agent and its workflow based on frontend configuration.
-    """
+    """This function initializes a trading agent and its workflow based on frontend configuration."""
     # Extract configuration data from frontend dictionary
     role = fe_data["role"]
     network = fe_data["network"]
@@ -189,9 +187,7 @@ def setup_marketing_agent_flow(
 ) -> Tuple[
     MarketingAgent, List[str], Callable[[StrategyData | None, str | None], None]
 ]:
-    """
-    This function initializes a marketing agent and its workflow based on frontend configuration.
-    """
+    """This function initializes a marketing agent and its workflow based on frontend configuration."""
     role = fe_data["role"]
     time_ = fe_data["time"]
     metric_name = fe_data["metric_name"]
