@@ -1,16 +1,16 @@
 import pymysql
 
-from typing import Annotated
-from pathlib import Path
-from functools import wraps
-from fastapi import Header, HTTPException, Depends
+from typing            import Annotated
+from pathlib           import Path
+from functools         import wraps
+from fastapi           import Header, HTTPException, Depends
 from fastapi.responses import JSONResponse
 
 from config import MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE, API_KEY
 
 db_config = {
-    "host": MYSQL_HOST,
-    "user": MYSQL_USER,
+    "host":     MYSQL_HOST,
+    "user":     MYSQL_USER,
     "password": MYSQL_PASSWORD,
     "database": MYSQL_DATABASE,
     "ssl_ca": (Path(__file__).parent.parent / "ca.pem").resolve(),
