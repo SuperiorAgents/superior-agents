@@ -1,9 +1,10 @@
-from web3 import Web3
 import requests
-from typing import Dict, Any
+
+from web3     import Web3
+from typing   import Dict, Any
 from datetime import datetime
 
-from typing import Optional
+from typing      import Optional
 from dataclasses import dataclass
 
 
@@ -103,6 +104,8 @@ def get_wallet_stats(
     Returns:
             Dict[str, Any]: Dictionary containing:
                     - eth_balance (float): ETH balance in ether
+                    - eth_balance_reserved (float): ETH reserved for gas fees
+                    - eth_balance_available (float): ETH available for trading
                     - tokens (Dict): Dictionary of token information, keyed by token address
                     - timestamp (str): ISO-formatted timestamp of when the data was retrieved
 
@@ -129,7 +132,11 @@ def get_wallet_stats(
 
     # Get ETH balance
     eth_balance = w3.eth.get_balance(address)  # type: ignore
-    eth_balance_human = w3.from_wei(eth_balance, "ether")
+    eth_balance_human = float(w3.from_wei(eth_balance, "ether"))
+
+    # Reserve ETH for gas fees (0.01 ETH)
+    eth_reserve = 0.01
+    eth_available = max(0.0, eth_balance_human - eth_reserve)
 
     # Get tokens from Etherscan
     url = f"https://api.etherscan.io/api?module=account&action=tokentx&address={address}&sort=desc&apikey={etherscan_key}"
@@ -185,7 +192,7 @@ def get_wallet_stats(
         eth_price_usd = price_response.json()["ethereum"]["usd"]
 
         # Calculate total portfolio value in USD
-        total_value_usd = float(eth_balance_human) * eth_price_usd
+        total_value_usd = eth_balance_human * eth_price_usd
 
         # For each token, get its price and add to total value
         for token_addr, token_data in tokens.items():
@@ -201,9 +208,11 @@ def get_wallet_stats(
                     total_value_usd += token_value_usd
 
         return {
-            "eth_balance": float(eth_balance_human),
-            "eth_price_usd": eth_price_usd,  # Includes current ETH price
-            "tokens": tokens,  # Includes token balances and prices
-            "total_value_usd": total_value_usd,  # Total portfolio value in USD
+            "eth_balance": eth_balance_human,
+            "eth_balance_reserved": eth_reserve,
+            "eth_balance_available": eth_available,
+            "eth_price_usd": eth_price_usd,
+            "tokens": tokens,
+            "total_value_usd": total_value_usd,
             "timestamp": datetime.now().isoformat(),
         }
