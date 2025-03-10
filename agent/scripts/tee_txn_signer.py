@@ -1,15 +1,15 @@
 import os
 import requests
-from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request
+from dotenv            import load_dotenv
+from fastapi           import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, field_validator
+from pydantic          import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings
-from web3 import Web3, Account
-from retry import retry
-from typing import Optional
-from db import update_agent_session as db
-from decimal import Decimal
+from web3              import Web3, Account
+from retry             import retry
+from typing            import Optional
+from db                import update_agent_session as db
+from decimal           import Decimal
 
 load_dotenv()
 

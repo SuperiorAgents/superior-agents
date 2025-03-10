@@ -1,16 +1,15 @@
 import re
-from textwrap import dedent
-from typing import Dict, List, Set, Tuple
-from datetime import datetime, timezone, timedelta
 
-from result import Err, Ok, Result
-
-from src.container import ContainerManager
-from src.db import APIDB
-from src.genner.Base import Genner
-from src.client.rag import RAGClient
+from textwrap           import dedent
+from typing             import Dict, List, Set, Tuple
+from datetime           import datetime, timezone, timedelta
+from result             import Err, Ok, Result
+from src.container      import ContainerManager
+from src.db             import APIDB
+from src.genner.Base    import Genner
+from src.client.rag     import RAGClient
 from src.sensor.trading import TradingSensor
-from src.types import ChatHistory, Message
+from src.types          import ChatHistory, Message
 
 
 class TradingPromptGenerator:
@@ -19,6 +18,8 @@ class TradingPromptGenerator:
     def __init__(self, prompts: Dict[str, str]):
         """
         Initialize with custom prompts for each function.
+        - Sets up the prompt generator with either custom prompts or default prompts if none are provided. 
+        - Validates that all required prompts are present and properly formatted.
 
         Args:
                 prompts (Dict[str, str]): Dictionary containing custom prompts for each function
@@ -37,7 +38,6 @@ class TradingPromptGenerator:
     ):
         """
         Convert trading instruments to curl command prompts.
-        - Generates curl command examples for each trading instrument
 
         Args:
                 instruments (List[str]): List of trading instrument types
@@ -240,6 +240,22 @@ class TradingPromptGenerator:
         """
         now = datetime.now()
         today_date = now.strftime("%Y-%m-%d")
+
+        # Parse the metric state to extract available balance
+        try:
+            metric_data = eval(metric_state)
+            if isinstance(metric_data, dict) and "eth_balance_available" in metric_data:
+                # Use available balance instead of total balance
+                metric_state = str(
+                    {
+                        **metric_data,
+                        "eth_balance": metric_data[
+                            "eth_balance_available"
+                        ],  # Show only available balance
+                    }
+                )
+        except:
+            pass  # Keep original metric_state if parsing fails
 
         return self.prompts["system_prompt"].format(
             role=role,
@@ -446,6 +462,7 @@ class TradingPromptGenerator:
 			Today's date is {today_date}.
 			Your goal is to maximize {metric_name} within {time}
 			Your current portfolio on {network} network is: {metric_state}
+			Note: The ETH balance shown is your available balance for trading. A small amount is automatically reserved for gas fees.
 		"""
             ).strip(),
             #

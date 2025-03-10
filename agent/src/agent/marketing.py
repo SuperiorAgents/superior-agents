@@ -1,16 +1,15 @@
-from datetime import datetime
 import re
-from textwrap import dedent
-from typing import Dict, List, Optional, Set, Tuple
 
-from result import Err, Ok, Result
-
-from src.client.rag import RAGClient
-from src.container import ContainerManager
-from src.db import APIDB
-from src.genner.Base import Genner
+from datetime             import datetime
+from textwrap             import dedent
+from typing               import Dict, List, Optional, Set, Tuple
+from result               import Err, Ok, Result
+from src.client.rag       import RAGClient
+from src.container        import ContainerManager
+from src.db               import APIDB
+from src.genner.Base      import Genner
 from src.sensor.marketing import MarketingSensor
-from src.types import ChatHistory, Message
+from src.types            import ChatHistory, Message
 
 
 class MarketingPromptGenerator:
