@@ -1,0 +1,20 @@
+# fly.toml app configuration file generated for superior-crud-api on 2025-03-07T16:11:08+09:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app            = 'superior-crud-api'
+primary_region = 'sin'
+
+[build]
+
+[http_service]
+  internal_port        = 9020
+  force_https          = true
+  auto_stop_machines   = 'off'
+  auto_start_machines  = true
+  min_machines_running = 0
+  processes            = ['app']
+
+[[vm]]
+  size = 'performance-2x'
