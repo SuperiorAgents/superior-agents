@@ -17,6 +17,7 @@ pycoingecko==3.1.0  # CoinGecko API
 # Web scraping and parsing
 beautifulsoup4==4.12.2
 lxml==4.9.3
+feedparser==6.0.10  # RSS feed parsing
 
 # HTTP and async
 aiohttp==3.9.1
