@@ -3,7 +3,7 @@ from utils.utils import db_connection_decorator, delete_none
 
 @db_connection_decorator
 def insert_strategies_db(cursor, insert_dict):
-    """Insert a new chat history record"""
+    """Insert a new strategies record"""
     columns = ", ".join(insert_dict.keys())
     values = ", ".join([f"%s" for value in insert_dict.values()])
     query = f"INSERT INTO sup_strategies ({columns}) VALUES ({values})"
@@ -13,7 +13,7 @@ def insert_strategies_db(cursor, insert_dict):
 
 @db_connection_decorator
 def update_strategies_db(cursor, set_dict, where_dict):
-    """Update existing chat history records"""
+    """Update existing strategies records"""
     delete_none(set_dict)
     set_clause = ", ".join([f"{key} = %s" for key, value in set_dict.items()])
     where_clause = " AND ".join([f"{key} = %s" for key, value in where_dict.items()])
@@ -26,7 +26,7 @@ def update_strategies_db(cursor, set_dict, where_dict):
 def get_all_strategies_db(
     cursor, result_columns: list, where_conditions: dict, pagination
 ) -> str:
-    """Retrieve chat history with pagination"""
+    """Retrieve all strategies with pagination"""
     delete_none(where_conditions)
     select_clause = ", ".join(result_columns) if result_columns else "*"
     where_clause = " AND ".join(
