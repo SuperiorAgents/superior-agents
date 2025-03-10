@@ -12,7 +12,7 @@ services:
 
   # agent-daemon:
   #   image: superioragents/agent-daemon
-  #   build: 
+  #   build:
   #     context: ./agent
   #     dockerfile: Dockerfile
   #   environment:

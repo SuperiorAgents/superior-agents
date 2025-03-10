@@ -1,15 +1,14 @@
 import json
 import subprocess
-from datetime import datetime
 
-from pathlib import Path
-
+from datetime            import datetime
+from pathlib             import Path
 from src.agent.marketing import MarketingPromptGenerator
-from src.agent.trading import TradingPromptGenerator
+from src.agent.trading   import TradingPromptGenerator
 
-DATA_FOLDER = "./data"
-MARKETING_PROMPT_PATH = "./src/agent/marketing.py"
-TRADING_PROMPT_PATH = "./src/agent/trading.py"
+DATA_FOLDER            = "./data"
+MARKETING_PROMPT_PATH  = "./src/agent/marketing.py"
+TRADING_PROMPT_PATH    = "./src/agent/trading.py"
 
 
 def check_file_committed(filepath):
@@ -31,7 +30,7 @@ def check_file_committed(filepath):
         raise FileNotFoundError(f"File not found: {filepath}")
 
     # Check if file has uncommitted changes
-    status_cmd = ["git", "status", "--porcelain", filepath]
+    status_cmd    = ["git", "status", "--porcelain", filepath]
     status_output = subprocess.check_output(status_cmd, universal_newlines=True).strip()
 
     # If status_output is empty, file is committed
@@ -52,12 +51,12 @@ def get_git_info():
     """
     try:
         # Get the current commit hash
-        hash_cmd = ["git", "rev-parse", "HEAD"]
+        hash_cmd    = ["git", "rev-parse", "HEAD"]
         commit_hash = subprocess.check_output(hash_cmd, universal_newlines=True).strip()
 
         # Get the current branch name
         branch_cmd = ["git", "rev-parse", "--abbrev-ref", "HEAD"]
-        branch = subprocess.check_output(branch_cmd, universal_newlines=True).strip()
+        branch     = subprocess.check_output(branch_cmd, universal_newlines=True).strip()
 
         # Get the commit date
         date_cmd = ["git", "log", "-1", "--format=%cd", "--date=iso"]
@@ -78,7 +77,7 @@ if __name__ == "__main__":
     check_file_committed(MARKETING_PROMPT_PATH)
 
     marketing_prompt_hash = hash(json.dumps(marketing_default_prompts, sort_keys=True))
-    trading_prompt_hash = hash(json.dumps(trading_default_prompts, sort_keys=True))
+    trading_prompt_hash   = hash(json.dumps(trading_default_prompts, sort_keys=True))
 
     data = {
         "trading": trading_default_prompts,

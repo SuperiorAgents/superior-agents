@@ -8,12 +8,14 @@
 ## Installation Steps
 
 ### 1. Clone the Repository
+
 ```bash
 git clone https://github.com/yourusername/superior-agents.git
 cd superior-agents
 ```
 
 ### 2. Build Agent Executor
+
 ```bash
 docker build -f ./agent/docker/Dockerfile -t superioragents/agent-executor:latest ./agent/docker
 # docker build -f ./agent/Dockerfile -t superioragents/agent-daemon ./agent
@@ -46,6 +48,7 @@ docker compose exec -T mysql mysql -u superioragents -psuperioragents superiorag
 ```
 
 To verify migration success:
+
 ```bash
 # Check if tables were created
 docker compose exec mysql mysql -u superioragents -psuperioragents superioragents -e "SHOW TABLES;"
@@ -65,11 +68,13 @@ If you get a connection error, wait a few more seconds and try again - MySQL mig
 If you encounter any issues:
 
 1. Check service logs:
+
 ```bash
 docker compose logs [service-name]
 ```
 
 2. Verify all containers are running:
+
 ```bash
 docker compose ps
 ```

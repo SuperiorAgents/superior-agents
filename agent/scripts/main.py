@@ -5,47 +5,47 @@ import os
 import sys
 import time
 from functools import partial
-from typing import Callable, List, Tuple
+from typing    import Callable, List, Tuple
 
 import requests
 import tweepy
-from anthropic import Anthropic
-from dotenv import load_dotenv
+from anthropic         import Anthropic
+from dotenv            import load_dotenv
 from duckduckgo_search import DDGS
-from loguru import logger
-from openai import OpenAI
+from loguru            import logger
+from openai            import OpenAI
 
 import docker
-from src.agent.marketing import MarketingAgent, MarketingPromptGenerator
-from src.agent.trading import TradingAgent, TradingPromptGenerator
-from src.container import ContainerManager
-from src.datatypes import StrategyData
-from src.db import APIDB
-from src.flows.marketing import unassisted_flow as marketing_unassisted_flow
-from src.flows.trading import assisted_flow as trading_assisted_flow
-from src.genner import get_genner
-from src.helper import services_to_envs, services_to_prompts
-from src.manager import ManagerClient
-from src.client.rag import RAGClient
-from src.sensor.marketing import MarketingSensor
-from src.sensor.trading import TradingSensor
-from src.summarizer import get_summarizer
-from src.twitter import TweepyTwitterClient
+from src.agent.marketing   import MarketingAgent, MarketingPromptGenerator
+from src.agent.trading     import TradingAgent, TradingPromptGenerator
+from src.container         import ContainerManager
+from src.datatypes         import StrategyData
+from src.db                import APIDB
+from src.flows.marketing   import unassisted_flow as marketing_unassisted_flow
+from src.flows.trading     import assisted_flow as trading_assisted_flow
+from src.genner            import get_genner
+from src.helper            import services_to_envs, services_to_prompts
+from src.manager           import ManagerClient
+from src.client.rag        import RAGClient
+from src.sensor.marketing  import MarketingSensor
+from src.sensor.trading    import TradingSensor
+from src.summarizer        import get_summarizer
+from src.twitter           import TweepyTwitterClient
 from src.client.openrouter import OpenRouter
 
 load_dotenv()
 
 # Research tools
-TWITTER_API_KEY = os.getenv("TWITTER_API_KEY") or ""
-TWITTER_API_SECRET = os.getenv("TWITTER_API_KEY_SECRET") or ""
-TWITTER_BEARER_TOKEN = os.getenv("TWITTER_BEARER_TOKEN") or ""
-TWITTER_ACCESS_TOKEN = os.getenv("TWITTER_ACCESS_TOKEN") or ""
+TWITTER_API_KEY             = os.getenv("TWITTER_API_KEY") or ""
+TWITTER_API_SECRET          = os.getenv("TWITTER_API_KEY_SECRET") or ""
+TWITTER_BEARER_TOKEN        = os.getenv("TWITTER_BEARER_TOKEN") or ""
+TWITTER_ACCESS_TOKEN        = os.getenv("TWITTER_ACCESS_TOKEN") or ""
 TWITTER_ACCESS_TOKEN_SECRET = os.getenv("TWITTER_ACCESS_TOKEN_SECRET") or ""
 
-RESEARCH_TWITTER_API_KEY = os.getenv("RESEARCH_TWITTER_API_KEY") or ""
-RESEARCH_TWITTER_API_SECRET = os.getenv("RESEARCH_TWITTER_API_KEY_SECRET") or ""
-RESEARCH_TWITTER_BEARER_TOKEN = os.getenv("RESEARCH_TWITTER_BEARER_TOKEN") or ""
-RESEARCH_TWITTER_ACCESS_TOKEN = os.getenv("RESEARCH_TWITTER_ACCESS_TOKEN") or ""
+RESEARCH_TWITTER_API_KEY             = os.getenv("RESEARCH_TWITTER_API_KEY") or ""
+RESEARCH_TWITTER_API_SECRET          = os.getenv("RESEARCH_TWITTER_API_KEY_SECRET") or ""
+RESEARCH_TWITTER_BEARER_TOKEN        = os.getenv("RESEARCH_TWITTER_BEARER_TOKEN") or ""
+RESEARCH_TWITTER_ACCESS_TOKEN        = os.getenv("RESEARCH_TWITTER_ACCESS_TOKEN") or ""
 RESEARCH_TWITTER_ACCESS_TOKEN_SECRET = (
     os.getenv("RESEARCH_TWITTER_ACCESS_TOKEN_SECRET") or ""
 )
@@ -57,25 +57,25 @@ INFURA_PROJECT_ID = os.getenv("INFURA_PROJECT_ID") or ""
 
 # LLM Keys
 DEEPSEEK_OPENROUTER_API_KEY = os.getenv("DEEPSEEK_OPENROUTER_API_KEY") or ""
-DEEPSEEK_DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_DEEPSEEK_API_KEY") or ""
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY") or ""
-OAI_API_KEY = os.getenv("OAI_API_KEY") or ""
+DEEPSEEK_DEEPSEEK_API_KEY   = os.getenv("DEEPSEEK_DEEPSEEK_API_KEY") or ""
+ANTHROPIC_API_KEY           = os.getenv("ANTHROPIC_API_KEY") or ""
+OAI_API_KEY                 = os.getenv("OAI_API_KEY") or ""
 
 # Our services
-MANAGER_SERVICE_URL = os.getenv("MANAGER_SERVICE_URL") or ""
-DB_SERVICE_URL = os.getenv("DB_SERVICE_URL") or ""
+MANAGER_SERVICE_URL        = os.getenv("MANAGER_SERVICE_URL") or ""
+DB_SERVICE_URL             = os.getenv("DB_SERVICE_URL") or ""
 DEEPSEEK_LOCAL_SERVICE_URL = os.getenv("DEEPSEEK_LOCAL_SERVICE_URL") or ""
-VAULT_SERVICE_URL = os.getenv("VAULT_SERVICE_URL") or ""
-TXN_SERVICE_URL = os.getenv("TXN_SERVICE_URL") or ""
-RAG_SERVICE_URL = os.getenv("RAG_SERVICE_URL") or ""
+VAULT_SERVICE_URL          = os.getenv("VAULT_SERVICE_URL") or ""
+TXN_SERVICE_URL            = os.getenv("TXN_SERVICE_URL") or ""
+RAG_SERVICE_URL            = os.getenv("RAG_SERVICE_URL") or ""
 
 # Our services keys
 MANAGER_SERVICE_API_KEY = os.getenv("MANAGER_SERVICE_URL") or ""
-DB_SERVICE_API_KEY = os.getenv("DB_SERVICE_API_KEY") or ""
-DEEPSEEK_LOCAL_API_KEY = os.getenv("DEEPSEEK_LOCAL_API_KEY") or ""
-VAULT_API_KEY = os.getenv("VAULT_API_KEY") or ""
-TXN_SERVICE_API_KEY = os.getenv("TXN_SERVICE_API_KEY") or ""
-RAG_SERVICE_API_KEY = os.getenv("RAG_SERVICE_API_KEY") or ""
+DB_SERVICE_API_KEY      = os.getenv("DB_SERVICE_API_KEY") or ""
+DEEPSEEK_LOCAL_API_KEY  = os.getenv("DEEPSEEK_LOCAL_API_KEY") or ""
+VAULT_API_KEY           = os.getenv("VAULT_API_KEY") or ""
+TXN_SERVICE_API_KEY     = os.getenv("TXN_SERVICE_API_KEY") or ""
+RAG_SERVICE_API_KEY     = os.getenv("RAG_SERVICE_API_KEY") or ""
 
 # Clients Setup
 deepseek_or_client = OpenRouter(
@@ -102,7 +102,6 @@ def setup_trading_agent_flow(
     fe_data: dict, session_id: str, agent_id: str, assisted=True
 ) -> Tuple[TradingAgent, List[str], Callable[[StrategyData | None, str | None], None]]:
     """This function initializes a trading agent and its workflow based on frontend configuration."""
-    # Extract configuration data from frontend dictionary
     role = fe_data["role"]
     network = fe_data["network"]
     services_used = fe_data["research_tools"]
@@ -135,7 +134,6 @@ def setup_trading_agent_flow(
         vault_api_key=VAULT_API_KEY,
         txn_service_url=TXN_SERVICE_URL,
     )
-    # Set up container manager for isolated code execution
     container_manager = ContainerManager(
         docker.from_env(),
         "agent-executor",
@@ -144,7 +142,7 @@ def setup_trading_agent_flow(
     )
     summarizer = get_summarizer(summarizer_genner)
     previous_strategies = db.fetch_all_strategies(agent_id)
-    # Initialize RAG client for context-aware responses
+
     rag = RAGClient(
         session_id=session_id,
         agent_id=agent_id,
@@ -160,7 +158,7 @@ def setup_trading_agent_flow(
         db=db,
         rag=rag,
     )
-    # Partial function for the trading flow with fixed parameters
+
     flow_func = partial(
         trading_assisted_flow,
         agent=agent,
@@ -175,7 +173,6 @@ def setup_trading_agent_flow(
         summarizer=summarizer,
     )
 
-    # Wrapper function that takes only strategy and notification inputs
     def wrapped_flow(prev_strat, notif_str):
         return flow_func(agent=agent, prev_strat=prev_strat, notif_str=notif_str)
 
@@ -200,13 +197,13 @@ def setup_marketing_agent_flow(
     in_con_env = services_to_envs(services_used)
     apis = services_to_prompts(services_used)
     db = APIDB(base_url=DB_SERVICE_URL, api_key=DB_SERVICE_API_KEY)
-    # Set up Twitter OAuth handler
+
     auth = tweepy.OAuth1UserHandler(
         consumer_key=TWITTER_API_KEY,
         consumer_secret=TWITTER_API_SECRET,
     )
     auth.set_access_token(TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_TOKEN_SECRET)
-    # Initialize Twitter client
+
     twitter_client = TweepyTwitterClient(
         client=tweepy.Client(
             bearer_token=TWITTER_BEARER_TOKEN,
