@@ -5,11 +5,11 @@ from utils.utils import db_connection_decorator, delete_none
 def insert_notifications_prevent_duplicate_db(cursor, insert_dict) -> str:
     """Insert notification with duplicate prevention"""
     columns = ", ".join(insert_dict.keys())
-    values = ", ".join([f"%s" for value in insert_dict.values()])
+    values = ", ".join(["?" for _ in insert_dict.values()])
 
     try:
         # Check if the record exists with the same relative_to_scraper_id or long_desc
-        check_query = "SELECT id FROM sup_notifications WHERE relative_to_scraper_id = %s OR long_desc = %s"
+        check_query = "SELECT id FROM sup_notifications WHERE relative_to_scraper_id = ? OR long_desc = ?"
         cursor.execute(
             check_query,
             [insert_dict.get("relative_to_scraper_id"), insert_dict.get("long_desc")],
@@ -29,13 +29,10 @@ def insert_notifications_prevent_duplicate_db(cursor, insert_dict) -> str:
 def insert_notifications_batch_prevent_duplicate_db(cursor, insert_dicts):
     """Process batch of notifications with duplicate prevention"""
     try:
-        # Check if insert_dicts has the expected structure
         if not isinstance(insert_dicts, dict) or "notifications" not in insert_dicts:
             return "Invalid batch data format: expected dictionary with 'notifications' key"
 
-        # Process each notification in the batch
         for insert_dict in insert_dicts["notifications"]:
-            # Call the single insert function for each notification
             err = insert_notifications_prevent_duplicate_db(insert_dict)
             if err != "success":
                 return err
@@ -49,7 +46,7 @@ def insert_notifications_db(cursor, insert_dict) -> str:
     """Simple insert notification"""
     try:
         columns = ", ".join(insert_dict.keys())
-        values = ", ".join([f"%s" for value in insert_dict.values()])
+        values = ", ".join(["?" for _ in insert_dict.values()])
         query = f"INSERT INTO sup_notifications ({columns}) VALUES ({values})"
         cursor.execute(query, list(insert_dict.values()))
         return "success"
@@ -62,10 +59,8 @@ def update_notifications_db(cursor, set_dict, where_dict) -> str:
     """Update notification records"""
     try:
         delete_none(set_dict)
-        set_clause = ", ".join([f"{key} = %s" for key, value in set_dict.items()])
-        where_clause = " AND ".join(
-            [f"{key} = %s" for key, value in where_dict.items()]
-        )
+        set_clause = ", ".join([f"{key} = ?" for key in set_dict.keys()])
+        where_clause = " AND ".join([f"{key} = ?" for key in where_dict.keys()])
         query = f"UPDATE sup_notifications SET {set_clause} WHERE {where_clause}"
         cursor.execute(query, list(set_dict.values()) + list(where_dict.values()))
         return "success"
@@ -74,21 +69,18 @@ def update_notifications_db(cursor, set_dict, where_dict) -> str:
 
 
 @db_connection_decorator
-def get_all_notifications_db(
-    cursor, result_columns: list, where_conditions: dict, pagination
-) -> tuple:
+def get_all_notifications_db(cursor, result_columns: list, where_conditions: dict, pagination) -> tuple:
     """Retrieve notifications with pagination"""
     try:
         delete_none(where_conditions)
         select_clause = ", ".join(result_columns) if result_columns else "*"
-        where_clause = " AND ".join(
-            [f"{col} = %s" for col, val in where_conditions.items()]
-        )
-        order_by_clause = f"ORDER BY sup_notifications.notification_date DESC"
+        where_clause = " AND ".join([f"{col} = ?" for col in where_conditions.keys()])
+        order_by_clause = "ORDER BY notification_date DESC"
         page = pagination.get("page", 1)
         page_size = pagination.get("page_size", 800)
         offset = (page - 1) * page_size
-        limit_clause = f"LIMIT {offset}, {page_size}"
+
+        # Get total count for pagination
         count_query = "SELECT COUNT(1) as sum FROM sup_notifications"
         query = f"SELECT {select_clause} FROM sup_notifications"
         if where_clause:
@@ -97,9 +89,9 @@ def get_all_notifications_db(
         if order_by_clause:
             query += f" {order_by_clause}"
             count_query += f" {order_by_clause}"
-        query += f" {limit_clause}"
+        query += f" LIMIT ? OFFSET ?"
 
-        cursor.execute(query, list(where_conditions.values()))
+        cursor.execute(query, list(where_conditions.values()) + [page_size, offset])
         result = cursor.fetchall()
         cursor.execute(count_query, list(where_conditions.values()))
         count = cursor.fetchone()
@@ -109,28 +101,26 @@ def get_all_notifications_db(
 
 
 @db_connection_decorator
-def get_all_notifications_old_db(
-    cursor, result_columns: list, where_conditions: dict, pagination
-) -> str:
-    """NOTE: Legacy notification retrieval with IN clause support"""
+def get_all_notifications_old_db(cursor, result_columns: list, where_conditions: dict, pagination) -> tuple:
+    """Legacy notification retrieval with IN clause support"""
     delete_none(where_conditions)
     select_clause = ", ".join(result_columns) if result_columns else "*"
     where_clauses = []
     where_values = []
     for col, val in where_conditions.items():
         if isinstance(val, list):
-            placeholders = ", ".join(["%s"] * len(val))
+            placeholders = ", ".join(["?"] * len(val))
             where_clauses.append(f"{col} IN ({placeholders})")
             where_values.extend(val)
         else:
-            where_clauses.append(f"{col} = %s")
+            where_clauses.append(f"{col} = ?")
             where_values.append(val)
+
     where_clause = " AND ".join(where_clauses)
-    order_by_clause = f"ORDER BY sup_notifications.notification_date DESC"
+    order_by_clause = "ORDER BY notification_date DESC"
     page = pagination.get("page", 1)
     page_size = pagination.get("page_size", 800)
     offset = (page - 1) * page_size
-    limit_clause = f"LIMIT {offset}, {page_size}"
     count_query = "SELECT COUNT(1) as sum FROM sup_notifications"
     query = f"SELECT {select_clause} FROM sup_notifications"
 
@@ -140,20 +130,19 @@ def get_all_notifications_old_db(
     if order_by_clause:
         query += f" {order_by_clause}"
         count_query += f" {order_by_clause}"
+    query += f" LIMIT ? OFFSET ?"
 
-    query += f" {limit_clause}"
-    print(query)
-    cursor.execute(query, list(where_values))
+    cursor.execute(query, where_values + [page_size, offset])
     result = cursor.fetchall()
-    cursor.execute(count_query, list(where_values))
+    cursor.execute(count_query, where_values)
     count = cursor.fetchone()
     return count["sum"], result
 
 
 @db_connection_decorator
-def get_notifications_alfath(cursor, result_columns, sources, page_size) -> str:
+def get_notifications_alfath(cursor, result_columns, sources, page_size) -> tuple:
     """Get latest notifications per source"""
-    placeholders = ", ".join(["%s"] * len(sources))
+    placeholders = ", ".join(["?"] * len(sources))
     where_clause = f"source IN ({placeholders})"
     query = f"""
     SELECT *
@@ -164,44 +153,23 @@ def get_notifications_alfath(cursor, result_columns, sources, page_size) -> str:
         FROM sup_notifications
         WHERE {where_clause}
     ) ranked
-    WHERE row_num <= {page_size}
+    WHERE row_num <= ?
     """
-    print(query, sources)
-    cursor.execute(query, sources)
+    cursor.execute(query, sources + [page_size])
     result = cursor.fetchall()
     return 0, result
 
 
 @db_connection_decorator
 def get_notification_sources(cursor) -> tuple:
-    """Get unique sources that exactly end with _news or start with twitter from sup_notifications table"""
+    """Get unique sources from sup_notifications"""
     try:
         query = """
         SELECT DISTINCT 
+            source,
             CASE
-                -- Handle base categories
-                WHEN source IN ('animals_news', 'business_news', 'entertainment_news', 
-                              'politics_news', 'science_news', 'sports_news', 
-                              'technology_news', 'twitter_feed', 'twitter_mentions',
-                              'world_news_news')
-                THEN source
-                -- Handle specific sources by mapping to base category
-                WHEN source LIKE 'business_news_%' THEN 'business_news'
-                WHEN source LIKE 'crypto_news_%' THEN 'crypto_news'
-                WHEN source LIKE 'politics_news_%' THEN 'politics_news'
-                WHEN source LIKE 'sports_news_%' THEN 'sports_news'
-                WHEN source LIKE 'technology_news_%' THEN 'technology_news'
-                WHEN source LIKE 'health_news_%' THEN 'health_news'
-                WHEN source LIKE 'general_news_%' THEN 'general_news'
-                ELSE source
-            END as source,
-            CASE
-                WHEN source = 'world_news_news' THEN 'World News'
-                WHEN source LIKE '%_news%' THEN 
-                    REPLACE(
-                        SUBSTRING_INDEX(source, '_news', 1),
-                        '_', ' '
-                    )
+                WHEN source LIKE '%_news%' THEN REPLACE(source, '_', ' ')
+                WHEN source LIKE 'twitter%' THEN source
                 ELSE source
             END as display_name
         FROM sup_notifications 
@@ -214,7 +182,6 @@ def get_notification_sources(cursor) -> tuple:
         """
         cursor.execute(query)
         results = cursor.fetchall()
-        # Transform results into required format
         sources = [
             {
                 "value": row["source"],
