@@ -218,6 +218,7 @@ def setup_marketing_agent_flow(
         or_client=deepseek_or_client,
         deepseek_local_client=deepseek_local_client,
         anthropic_client=anthropic_client,
+        # stream_fn=lambda token: manager_client.push_token(token),
         stream_fn=lambda token: print(token, end="", flush=True),
     )
 
