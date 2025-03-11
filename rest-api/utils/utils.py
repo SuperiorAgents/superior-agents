@@ -1,5 +1,4 @@
-import pymysql
-
+import sqlite3
 from typing            import Annotated
 from pathlib           import Path
 from functools         import wraps
@@ -13,38 +12,29 @@ db_config = {
     "user":     MYSQL_USER,
     "password": MYSQL_PASSWORD,
     "database": MYSQL_DATABASE,
-    "ssl_ca": (Path(__file__).parent.parent / "ca.pem").resolve(),
 }
-
 
 def db_connection_decorator(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        # Define your database connection parameters
-        # print((Path(__file__).parent.parent / "ca.pem").resolve())
-        connection = pymysql.connect(
-            host=MYSQL_HOST,
-            user=MYSQL_USER,
-            password=MYSQL_PASSWORD,
-            db=MYSQL_DATABASE,
-            ssl_ca=db_config["ssl_ca"],
-            cursorclass=pymysql.cursors.DictCursor,
-        )
+        # Define SQLite database file path
+        connection = sqlite3.connect("database.db")
+        connection.row_factory = sqlite3.Row  # Enables dictionary-like row access
+        
         try:
-            # Pass the connection to the decorated function
             cursor = connection.cursor()
             result = func(cursor, *args, **kwargs)
+            connection.commit()  # Commit changes if successful
         except Exception as e:
             connection.rollback()  # Rollback in case of error
             print(f"An error occurred: {e}")
             raise
-        else:
-            connection.commit()  # Commit changes if successful
         finally:
             cursor.close()
             connection.close()  # Ensure connection is closed
+        
         return result
-
+    
     return wrapper
 
 
