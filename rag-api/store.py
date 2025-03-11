@@ -10,9 +10,9 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores.faiss import FAISS
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-PKL_PATH = "pkl/"
+PKL_PATH = "../pkl/"
 
-os.makedirs("pkl/", exist_ok=True)
+os.makedirs(PKL_PATH, exist_ok=True)
 
 def get_embeddings():
     return OpenAIEmbeddings(
@@ -51,7 +51,7 @@ def ingest_doc(strategy: str, reference_id: str, agent_id: str, session_id: str,
     )
 
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
+        chunk_size=2000,
         chunk_overlap=100,
     )
 
@@ -64,12 +64,12 @@ def ingest_doc(strategy: str, reference_id: str, agent_id: str, session_id: str,
     embeddings = get_embeddings()
 
     if is_exist:
-        vectorstore = FAISS.load_local('pkl/', embeddings, kb_id, allow_dangerous_deserialization=True, distance_strategy="COSINE")
+        vectorstore = FAISS.load_local(PKL_PATH, embeddings, kb_id, allow_dangerous_deserialization=True, distance_strategy="COSINE")
         vectorstore.add_documents(documents_splitted)
     else:
         vectorstore = FAISS.from_documents(documents_splitted, embeddings, distance_strategy="COSINE")
     
-    vectorstore.save_local("pkl/", kb_id)
+    vectorstore.save_local(PKL_PATH, kb_id)
 
     print("Document ingested successfully")
     return "Document ingested successfully"

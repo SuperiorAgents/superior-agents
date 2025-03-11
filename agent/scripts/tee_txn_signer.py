@@ -8,7 +8,7 @@ from pydantic_settings import BaseSettings
 from web3              import Web3, Account
 from retry             import retry
 from typing            import Optional
-from db                import update_agent_session as db
+from scripts.db        import update_agent_session as db
 from decimal           import Decimal
 
 load_dotenv()

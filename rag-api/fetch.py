@@ -38,10 +38,10 @@ def get_context_from_kb(vectorstore: FAISS, query, numChunks, threshold):
 
 def get_data_raw(query, agent_id, session_id, top_k, threshold, created_at):
     kb_id = f"{agent_id}_{session_id}"
-    if not os.path.exists(f"pkl/{kb_id}.pkl"):
+    if not os.path.exists(f"../pkl/{kb_id}.pkl"):
         raise Exception('No vector database has been made. Please run the agent at least one time')
 
-    vectorstore = FAISS.load_local('pkl/', get_embeddings(), kb_id, allow_dangerous_deserialization=True, distance_strategy="COSINE")
+    vectorstore = FAISS.load_local('../pkl/', get_embeddings(), kb_id, allow_dangerous_deserialization=True, distance_strategy="COSINE")
     documents = get_context_from_kb(vectorstore, query, top_k, threshold)
     
     format_docs = [

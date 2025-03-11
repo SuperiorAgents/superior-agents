@@ -69,7 +69,7 @@ class RAGClient:
         self,
         agent_id: str,
         session_id: str,
-        base_url: str = "https://supagent-rag-api.fly.dev",
+        base_url: str = "http://localhost:8080",
     ):
         """
         Initialize the RAG client with agent and session information.
@@ -78,7 +78,7 @@ class RAGClient:
             agent_id (str): Identifier for the agent
             session_id (str): Identifier for the session
             base_url (str, optional): Base URL for the RAG API. 
-                Defaults to "https://supagent-rag-api.fly.dev".
+                Defaults to "localhost:8080".
         """
         self.base_url = base_url
         self.agent_id = agent_id

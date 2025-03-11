@@ -21,3 +21,7 @@ DS_Store
 
 agent-venv
 rest-api-venv
+rag-api-venv
+
+code/
+pkl/

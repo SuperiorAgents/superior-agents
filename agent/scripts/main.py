@@ -1,5 +1,5 @@
 import dataclasses
-import datetime
+from datetime import datetime
 import json
 import os
 import sys
@@ -54,8 +54,9 @@ RESEARCH_TWITTER_ACCESS_TOKEN_SECRET = (
 COINGECKO_API_KEY = os.getenv("COINGECKO_API_KEY") or ""
 ETHERSCAN_API_KEY = os.getenv("ETHERSCAN_API_KEY") or ""
 INFURA_PROJECT_ID = os.getenv("INFURA_PROJECT_ID") or ""
+ETHER_ADDRESS = os.getenv("ETHER_ADDRESS") or ""
 
-# LLM Keys
+# LLM Keys  
 DEEPSEEK_OPENROUTER_API_KEY = os.getenv("DEEPSEEK_OPENROUTER_API_KEY") or ""
 DEEPSEEK_DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_DEEPSEEK_API_KEY") or ""
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY") or ""
@@ -125,10 +126,9 @@ def setup_trading_agent_flow(
     )
     prompt_generator = TradingPromptGenerator(prompts=fe_data["prompts"])
     sensor = TradingSensor(
-        agent_id=agent_id,
+        eth_address=ETHER_ADDRESS,
         infura_project_id=INFURA_PROJECT_ID,
         etherscan_api_key=ETHERSCAN_API_KEY,
-        txn_service_url=TXN_SERVICE_URL,
     )
     container_manager = ContainerManager(
         docker.from_env(),
@@ -276,9 +276,15 @@ if __name__ == "__main__":
         session_id = sys.argv[2]
         agent_id = sys.argv[3]
 
+    db = APIDB(base_url=DB_SERVICE_URL, api_key=DB_SERVICE_API_KEY)
+
+    try:
+        session = db.create_agent_session(session_id, agent_id, datetime.now().isoformat(), "running")
+    except Exception as e:
+        logger.error(f"Error creating agent session: {e}")
+
     manager_client = ManagerClient(MANAGER_SERVICE_URL, session_id)
 
-    db = APIDB(base_url=DB_SERVICE_URL, api_key=DB_SERVICE_API_KEY)
     session = db.get_agent_session(session_id, agent_id)
     session_interval = session.get("data", {}).get("session_interval", 15)
     if session is not None:

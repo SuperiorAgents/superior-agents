@@ -5,6 +5,10 @@ from typing import Optional
 from pydantic import BaseModel
 from store import ingest_doc as save_result
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from fetch import get_data_raw
 
 class GetRelevantDocumentParams(BaseModel):
@@ -28,7 +32,7 @@ app = FastAPI()
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logger.addHandler(logging.StreamHandler(sys.stdout))
-logger.info('API is starting up')
+logger.info('RAG API is starting up')
 
 @app.get("/health")
 async def health_check():
@@ -91,4 +95,5 @@ async def store_execution_result_batch(request: Request):
             output = save_result(strategy=strategy, reference_id=reference_id, strategy_data=strategy_data, agent_id=agent_id, session_id=session_id, created_at=created_at)
         return {'status': 'success', 'message': output}
     except Exception as e:
+        print(f"Error: {traceback.format_exc()}")
         return {'status': 'error', 'message': f'Error: {str(e)}'}
