@@ -184,13 +184,13 @@ These JSON files provide a flexible configuration mechanism to control agent beh
 cd ..
 
 # Create python virtual environment (recommended)
-python -m venv api-db-venv
+python -m venv rest-api-venv
 
 # Activate virtual environment
-source api-db-venv/bin/activate
+source rest-api-venv/bin/activate
 
 # Navigate to api_db's directory
-cd api_db
+cd rest-api
 
 # Install all required dependencies
 pip install -r requirements.txt
