@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  notification:
+    build: .
+    container_name: notification-service
+    volumes:
+      - ./logs:/app/notification/logs
+      - ./.env:/app/notification/.env:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+      - SCRAPER=all
+    restart: unless-stopped 

@@ -378,7 +378,7 @@ class RedditScraper(BaseScraper):
         return scraped_data
 
 class RSSFeedScraper(BaseScraper):
-    def __init__(self, feed_urls: Dict[str, str], bot_username: str = ""):
+    def __init__(self, feed_urls: Dict[str, str], bot_username: str = "", news_type: str = "crypto"):
         """
         Initialize RSS Feed Scraper
         
@@ -389,6 +389,7 @@ class RSSFeedScraper(BaseScraper):
         """
         super().__init__(bot_username)
         self.feed_urls = feed_urls
+        self.news_type = news_type
         # Initialize a dictionary to store the last seen entry IDs for each feed
         self.last_entry_ids: Dict[str, Set[str]] = {feed: set() for feed in feed_urls}
         # Common user agent to mimic a regular browser
@@ -399,7 +400,8 @@ class RSSFeedScraper(BaseScraper):
         }
     
     def get_source_prefix(self) -> str:
-        return "crypto_news"
+        """Get the prefix based on news type."""
+        return f"{self.news_type}_news"  # This will return e.g. "business_news"
     
     def _preprocess_feed(self, feed_content: str, feed_name: str) -> str:
         """Preprocess the feed content to fix common XML issues before parsing."""
@@ -554,7 +556,7 @@ class RSSFeedScraper(BaseScraper):
                                             
                                             # Create notification
                                             notification = ScrapedNotification(
-                                                source=f"{self.get_source_prefix()}_{feed_name}",
+                                                source=self.get_source_prefix(),
                                                 short_desc=content["short_desc"],
                                                 long_desc=content["long_desc"],
                                                 notification_date=content["pub_date"],
@@ -628,7 +630,7 @@ class RSSFeedScraper(BaseScraper):
                             
                             # Create notification
                             notification = ScrapedNotification(
-                                source=f"{self.get_source_prefix()}_{feed_name}",
+                                source=self.get_source_prefix(),
                                 short_desc=content["short_desc"],
                                 long_desc=content["long_desc"],
                                 notification_date=content["pub_date"],

@@ -47,26 +47,40 @@ logger = logging.getLogger(__name__)
 
 
 def handle_shutdown(signum, frame):
-    """This function handles graceful shutdown of the application when a system signal is received."""
+    """
+    Handle shutdown signals (SIGTERM, SIGINT).
+    Performs cleanup and exits gracefully.
+
+    Args:
+        signum: Signal number
+        frame: Current stack frame
+    """
     logger.info("Received shutdown signal, cleaning up...")
-    remove_pid_file()
     sys.exit(0)
 
 
-def is_process_running(scraper_type: str) -> bool:
-    """Check if another instance is running using pgrep"""
+def is_process_running() -> bool:
+    """
+    Check if another instance of the cron worker is running.
+
+    Returns:
+        bool: True if another instance is running, False otherwise
+    """
+    scraper_type: str = os.getenv("SCRAPER", "all")
     try:
         # Build search pattern
         pattern = f"./cron_worker.py"
-
+        
         # Run pgrep command
         result = subprocess.run(
-            ["pgrep", "-f", pattern], capture_output=True, text=True
+            ["pgrep", "-f", pattern],
+            capture_output=True,
+            text=True
         )
-
+        
         # Check results
         if result.returncode == 0:
-            pids = result.stdout.strip().split("\n")
+            pids = result.stdout.strip().split('\n')
             valid_pids = []
             for pid in pids:
                 try:
@@ -76,49 +90,52 @@ def is_process_running(scraper_type: str) -> bool:
                         valid_pids.append(pid_int)
                 except ValueError:
                     continue
-
+            
             if valid_pids:
-                logger.warning(
-                    f"Found existing processes for {scraper_type}: {valid_pids}"
-                )
+                logger.warning(f"Found existing processes for {scraper_type}: {valid_pids}")
                 return True
         return False
-
+        
     except Exception as e:
         logger.error(f"Error checking running processes: {str(e)}")
         return False
 
-
-def create_pid_file() -> bool:
-    """Check for existing processes using pgrep"""
-    scraper_type = os.getenv("SCRAPER", "all")
-
-    if is_process_running(scraper_type):
-        logger.error(f"Existing {scraper_type} process already running")
-        return False
-
-    logger.info(f"No existing {scraper_type} processes found")
-    return True
-
-
 class CronManager:
     def __init__(self, notification_dir: str):
+        """
+        Initialize cron manager.
+
+        Args:
+            notification_dir (str): Directory containing notification service files
+        """
         self.notification_dir = notification_dir
         self.cron = CronTab(user=True)
         self.venv_python = str(Path(notification_dir) / "venv" / "bin" / "python")
 
     def _create_job(self, name: str, interval: int, scraper: str) -> None:
-        """Create a single long-running daemon job"""
-        self.cron.remove_all(comment=f"notification_{name}")
+        """
+        Create a single long-running daemon job.
 
+        Args:
+            name (str): Name of the cron job
+            interval (int): Interval in seconds between job runs
+            scraper (str): Type of scraper to run
+        """
+        self.cron.remove_all(comment=f"notification_{name}")
+        
         job = self.cron.new(
             command=f"cd {self.notification_dir} && SCRAPER={scraper} {self.venv_python} ./cron_worker.py",
-            comment=f"notification_{name}",
+            comment=f"notification_{name}"
         )
         job.every_reboot()
 
     def setup_jobs(self, intervals: dict) -> None:
-        """Setup all cron jobs with specified intervals."""
+        """
+        Setup all cron jobs with specified intervals.
+
+        Args:
+            intervals (dict): Dictionary mapping scraper types to their intervals
+        """
         # Verify virtual environment exists
         if not os.path.isfile(self.venv_python):
             raise FileNotFoundError(
@@ -169,6 +186,12 @@ class CronManager:
 
 class CronNotificationWorker:
     def __init__(self, env_path: str = ".env"):
+        """
+        Initialize cron notification worker.
+
+        Args:
+            env_path (str): Path to environment file (default: ".env")
+        """
         # Initialize components
         load_dotenv(dotenv_path=env_path)
         self.notification_manager = NotificationDatabaseManager()
@@ -299,18 +322,87 @@ class CronNotificationWorker:
 
             # Initialize RSS Feed scrapers if requested
             if target_scraper in ["all", "rss"]:
+                # Get topic filter from environment
+                target_topic = os.getenv("TOPIC", "all").lower()
+
                 # Define the RSS feeds to scrape
                 rss_feeds = {
-                    # "bitcoin_magazine": "https://bitcoinmagazine.com/feed",
-                    # "cointelegraph": "https://cointelegraph.com/rss",
-                    "coindesk": "https://www.coindesk.com/arc/outboundfeeds/rss"
+                    "crypto": {
+                        "bitcoin_magazine": "https://bitcoinmagazine.com/feed",
+                        "cointelegraph": "https://cointelegraph.com/rss",
+                        "coindesk": "https://www.coindesk.com/arc/outboundfeeds/rss"
+                    },
+                    "politics": {
+                        "nytimes_politics": "https://rss.nytimes.com/services/xml/rss/nyt/Politics.xml",
+                        "washingtontimes": "https://www.washingtontimes.com/rss/headlines/news/politics/",
+                        "politico": "https://rss.politico.com/politics-news.xml"
+                    },
+                    "technology": {
+                        "techcrunch": "https://techcrunch.com/feed/",
+                        "wired": "https://www.wired.com/feed/rss",
+                        "theverge": "https://www.theverge.com/rss/index.xml",
+                        "zdnet": "https://www.zdnet.com/news/rss.xml",
+                        "engadget": "https://www.engadget.com/rss.xml"
+                    },
+                    "health": {
+                        "who_news": "https://www.who.int/rss-feeds/news-english.xml",
+                        "healthline": "https://www.healthline.com/rss/health-news"
+                    },
+                    "science": {
+                        "nature": "https://www.nature.com/nature.rss",
+                        "science_daily": "https://www.sciencedaily.com/rss/all.xml",
+                        "scientific_american": "https://www.scientificamerican.com/platform/syndication/rss/",
+                        "space": "https://www.space.com/feeds/all",
+                        "phys_org": "https://phys.org/rss-feed/"
+                    },
+                    "animals": {
+                        "live_science": "https://www.livescience.com/feeds/all",
+                        "zookeeper": "https://zookeeper.com/feed/"
+                    },
+                    "entertainment": {
+                        "variety": "https://variety.com/feed/",
+                        "hollywood_reporter": "https://www.hollywoodreporter.com/feed/",
+                        "deadline": "https://deadline.com/feed/",
+                        "rolling_stone": "https://www.rollingstone.com/feed/"
+                    },
+                    "sports": {
+                        "espn": "https://www.espn.com/espn/rss/news",
+                        "bbc_sport": "http://feeds.bbci.co.uk/sport/rss.xml",
+                        "cbs_sports": "https://www.cbssports.com/rss/headlines/",
+                        "yahoo_sports": "https://sports.yahoo.com/rss/"
+                    },
+                    "business": {
+                        "wsj_business": "https://feeds.a.dj.com/rss/WSJcomUSBusiness.xml",
+                        "bloomberg": "https://feeds.bloomberg.com/business/news.rss"
+                    },
+                    "world_news": {
+                        "cnn_world": "http://rss.cnn.com/rss/edition_world.rss",
+                        "bbc_world": "http://feeds.bbci.co.uk/news/world/rss.xml"
+                    }
                 }
-
-                # Create and add the RSS scraper
-                rss_scraper = RSSFeedScraper(feed_urls=rss_feeds, bot_username="")
-                self.scraper_manager.add_scraper(rss_scraper)
-                logger.info("RSS Feed scraper initialized")
-
+                
+                # Initialize scrapers based on topic
+                if target_topic == "all":
+                    # Create scrapers for each topic
+                    for topic, feeds in rss_feeds.items():
+                        topic_scraper = RSSFeedScraper(
+                            feed_urls=feeds,
+                            bot_username="",
+                            news_type=topic
+                        )
+                        self.scraper_manager.add_scraper(topic_scraper)
+                        logger.info(f"{topic.title()} RSS Feed scraper initialized")
+                else:
+                    # Initialize only the requested topic
+                    if target_topic in rss_feeds:
+                        scraper = RSSFeedScraper(
+                            feed_urls=rss_feeds[target_topic],
+                            bot_username="",
+                            news_type=target_topic
+                        )
+                        self.scraper_manager.add_scraper(scraper)
+                        logger.info(f"{target_topic.title()} RSS Feed scraper initialized")
+                    
         except Exception as e:
             logger.error(f"Error initializing scrapers: {str(e)}")
             raise
@@ -362,35 +454,39 @@ class CronNotificationWorker:
 
 
 async def run_forever():
-    """Run as a single long-lived daemon process"""
-    if not create_pid_file():
+    """
+    Run as a single long-lived daemon process.
+    
+    Continuously runs scraping cycles at specified intervals.
+    Handles shutdown signals and performs cleanup.
+    """
+    if not is_process_running():
         logger.error("Another instance is already running. Exiting.")
         return
 
     # Register signal handlers
     signal.signal(signal.SIGTERM, handle_shutdown)
     signal.signal(signal.SIGINT, handle_shutdown)
-
+    
     try:
         worker = CronNotificationWorker()
         while True:  # Single persistent worker
             start_time = datetime.now()
             logger.info(f"Starting scraping cycle at {start_time}")
-
+            
             try:
                 await worker.run_single_cycle()
             except Exception as e:
                 logger.error(f"Error in scraping cycle: {str(e)}")
-
+            
             end_time = datetime.now()
             duration = end_time - start_time
             logger.info(f"Cycle duration: {duration}")
-
+            
             interval = int(os.getenv("ALL_SCRAPING_INTERVAL", "60"))
             logger.info(f"Sleeping {interval} minutes")
             await asyncio.sleep(interval * 60)
     finally:
-        remove_pid_file()
         await worker.notification_manager.close()
 
 
@@ -419,7 +515,6 @@ def main():
 
     except KeyboardInterrupt:
         logger.info("Shutdown requested")
-        remove_pid_file()
         sys.exit(0)
 
     print("Main function completed")
