@@ -97,12 +97,29 @@ MOCK_NUMBER = 27
 
 class MarketingSensor:
     def __init__(self, twitter_client: TweepyTwitterClient, ddgs: DDGS):
-        """Initialize the marketing sensor with Twitter client and DuckDuckGo search."""
+        """
+        Initialize the marketing sensor with Twitter client and DuckDuckGo search.
+        
+        This constructor sets up the marketing sensor with the necessary clients
+        for accessing Twitter data and performing web searches.
+        
+        Args:
+            twitter_client (TweepyTwitterClient): Client for Twitter API interactions
+            ddgs (DDGS): DuckDuckGo search client for web searches
+        """
         self.twitter_client = twitter_client
         self.ddgs = ddgs
 
     def get_count_of_followers(self) -> int:
-        """Get the current count of Twitter followers."""
+        """
+        Get the current count of Twitter followers.
+        
+        This method retrieves the number of followers from the Twitter API,
+        with a fallback to a default value if the API call fails.
+        
+        Returns:
+            int: The number of followers, or a default value (27) if retrieval fails
+        """
         try:
             count = self.twitter_client.get_count_of_followers().unwrap()
         except UnwrapError as e:
@@ -115,7 +132,15 @@ class MarketingSensor:
         return count
 
     def get_count_of_likes(self) -> int:
-        """Get the current count of likes on the user's tweets."""
+        """
+        Get the current count of likes on the user's tweets.
+        
+        This method retrieves the number of likes from the Twitter API,
+        with a fallback to a default value if the API call fails.
+        
+        Returns:
+            int: The number of likes, or a default value (27*4) if retrieval fails
+        """
         try:
             count = self.twitter_client.get_count_of_me_likes().unwrap()
         except UnwrapError as e:
@@ -130,16 +155,19 @@ class MarketingSensor:
     def get_metric_fn(self, metric_name: str = "followers"):
         """
         Get a function that retrieves the specified metric.
-
+        
+        This method returns a function that can be called to retrieve
+        the current value of the specified metric.
+        
         Args:
-                metric_name (str, optional): Name of the metric to retrieve.
-                        Defaults to "followers".
-
+            metric_name (str, optional): Name of the metric to retrieve.
+                Defaults to "followers".
+                
         Returns:
-                Callable[[], int]: Function that returns the current metric value
-
+            Callable[[], int]: Function that returns the current metric value
+            
         Raises:
-                ValueError: If an unsupported metric name is provided
+            ValueError: If an unsupported metric name is provided
         """
         metrics = {
             "followers": partial(self.get_count_of_followers),

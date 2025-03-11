@@ -1,13 +1,14 @@
+from datetime import datetime
 import re
+from textwrap import dedent
+from typing import Dict, List, Optional, Set, Tuple
 
-from datetime             import datetime
-from textwrap             import dedent
-from typing               import Dict, List, Optional, Set, Tuple
-from result               import Err, Ok, Result
-from src.client.rag       import RAGClient
-from src.container        import ContainerManager
-from src.db               import APIDB
-from src.genner.Base      import Genner
+from result import Err, Ok, Result
+
+from src.client.rag import RAGClient
+from src.container import ContainerManager
+from src.db import APIDB
+from src.genner.Base import Genner
 from src.sensor.marketing import MarketingSensor
 from src.types            import ChatHistory, Message
 
@@ -84,7 +85,10 @@ class MarketingPromptGenerator:
     ) -> str:
         """
         Generate a system prompt for the marketing agent.
-
+        
+        This method creates a system prompt that sets the context for the agent,
+        including its role, current date, goal, and current metric state.
+        
         Args:
                 role (str): The role of the agent (e.g., "influencer")
                 time (str): Time frame for the marketing goal
@@ -108,7 +112,10 @@ class MarketingPromptGenerator:
     def generate_research_code_prompt_first(self, apis: List[str]) -> str:
         """
         Generate a prompt for the first-time research code generation.
-
+        
+        This method creates a prompt for generating research code when the agent
+        has no prior context or history to work with.
+        
         Args:
                 apis (List[str]): List of APIs available to the agent
 
@@ -129,7 +136,10 @@ class MarketingPromptGenerator:
     ) -> str:
         """
         Generate a prompt for research code generation with context.
-
+        
+        This method creates a prompt for generating research code when the agent
+        has prior context, including notifications, previous strategies, and RAG results.
+        
         Args:
                 notifications_str (str): String containing recent notifications
                 prev_strategy (str): Description of the previous strategy
@@ -157,7 +167,10 @@ class MarketingPromptGenerator:
     ) -> str:
         """
         Generate a prompt for strategy formulation.
-
+        
+        This method creates a prompt for generating a marketing strategy based on
+        notifications and research output.
+        
         Args:
                 notifications_str (str): String containing recent notifications
                 research_output_str (str): Output from the research code
@@ -193,9 +206,19 @@ class MarketingPromptGenerator:
     def _get_default_apis_str() -> str:
         """Get default list of available APIs"""
         default_apis = [
-            "Twitter API v2 (env variables TWITTER_API_KEY, TWITTER_API_SECRET)",
-            "Twitter API v1.1 (for legacy endpoints)",
-            "DuckDuckGo (using the command line `ddgr`)",
+        dedent("""
+        Research Twitter (ONLY FOR RESEARCH, Using Tweepy, env vars RESEARCH_TWITTER_API_KEY, RESEARCH_TWITTER_API_KEY_SECRET, RESEARCH_TWITTER_BEARER_TOKEN)
+            Posting Twitter (ONLY FOR POSTING ON TWITTER) (env vars POSTING_TWITTER_ACCESS_TOKEN) (
+            curl --request POST \
+                --url https://api.x.com/2/tweets \
+                --header 'Authorization: Bearer <access_token>' \
+                --header 'Content-Type: application/json' \
+                --data '{
+                "text": "Learn how to use the user Tweet timeline and user mention timeline endpoints in the X API v2 to explore Tweet https://t.co/56a0vZUx7i"
+                }'
+            )
+        """),
+        "DuckDuckGo (using the command line `ddgr`)",
         ]
         return ",\n".join(default_apis)
 
@@ -203,19 +226,16 @@ class MarketingPromptGenerator:
     def get_default_prompts() -> Dict[str, str]:
         """Get the complete set of default prompts that can be customized."""
         return {
-            "system_prompt": dedent(
-                """
-				You are a {role} social media influencer.
-				Today's date is {today_date}.
-				Your goal is to maximize {metric_name} within {time}
-				You are currently at {metric_state}
-			"""
-            ).strip(),
+            "system_prompt": dedent("""
+                You are a {role} social media influencer.
+                Today's date is {today_date}.
+                Your goal is to maximize {metric_name} within {time}
+                You are currently at {metric_state}
+            """).strip(),
             #
             #
             #
-            "research_code_prompt_first": dedent(
-                """
+            "research_code_prompt_first": dedent("""
                 You know nothing about your environment.
                 What do you do now?
                 You can use the following APIs to do research:
@@ -235,52 +255,48 @@ class MarketingPromptGenerator:
                 
                 main()
                 ```
-		"""
-            ).strip(),
+        """).strip(),
             #
             #
             #
-            "research_code_prompt": dedent(
-                """
-				Here is what is going on in your environment right now : 
-				<LatestNotification>
-				{notifications_str}
-				</LatestNotification>
-				Here is what you just tried : 
-				<PrevStrategy>
-				{prev_strategy} 
-				</PrevStrategy>
-				For reference, in the past when you encountered a similar situation you reasoned as follows:
-				<RAG>
-				{rag_summary}
-				</RAG>
-				The result of this RAG was
-				<BeforeStrategyExecution>
-				{before_metric_state}
-				</BeforeStrategyExecution>
-				<AfterStrategyExecution>
-				{after_metric_state}
-				</AfterStrategyExecution>
-				You are to print for everything, and raise every error or unexpected behavior of the program.
-				Please write code using format below to research what is going on in the world and how best to react to it.
-				```python
-				from dotenv import load_dotenv
-				import ...
+            "research_code_prompt": dedent("""
+                Here is what is going on in your environment right now : 
+                <LatestNotification>
+                {notifications_str}
+                </LatestNotification>
+                Here is what you just tried : 
+                <PrevStrategy>
+                {prev_strategy} 
+                </PrevStrategy>
+                For reference, in the past when you encountered a similar situation you reasoned as follows:
+                <RAG>
+                {rag_summary}
+                </RAG>
+                The result of this RAG was
+                <BeforeStrategyExecution>
+                {before_metric_state}
+                </BeforeStrategyExecution>
+                <AfterStrategyExecution>
+                {after_metric_state}
+                </AfterStrategyExecution>
+                You are to print for everything, and raise every error or unexpected behavior of the program.
+                Please write code using format below to research what is going on in the world and how best to react to it.
+                ```python
+                from dotenv import load_dotenv
+                import ...
 
-				load_dotenv()
+                load_dotenv()
 
-				def main():
-					....
-				
-				main()
-				```
-			"""
-            ).strip(),
+                def main():
+                    ....
+                
+                main()
+                ```
+            """).strip(),
             #
             #
             #
-            "strategy_prompt": dedent(
-                """
+            "strategy_prompt": dedent("""
                 You just learnt the following information: 
                 <LatestNotification>
                 {notifications_str}
@@ -290,69 +306,70 @@ class MarketingPromptGenerator:
                 </ResearchOutput>
                 Decide what what you should do to help you maximize {metric_name} within {time}. 
                 Choose one action and write a short paragraph explaining how you will do it.
-		"""
-            ).strip(),
+        """).strip(),
             #
             #
             #
-            "marketing_code_prompt": dedent(
-                """
-				Please write code to implement this strategy:
-				<Strategy>
-				{strategy_output}
-				</Strategy>
-				You have the following APIs:
-				<APIs>
-				{apis_str}
-				</APIs>
-				Format the code as follows:
-				```python
-				from dotenv import load_dotenv
-				import ...
+            "marketing_code_prompt": dedent("""
+                Please write code to implement this strategy:
+                <Strategy>
+                {strategy_output}
+                </Strategy>
+                You have the following APIs:
+                <APIs>
+                {apis_str}
+                </APIs>
+                Format the code as follows:
+                ```python
+                from dotenv import load_dotenv
+                import ...
 
-				load_dotenv()
+                load_dotenv()
 
-				def main():
-					....
+                def main():
+                    ....
 
-				main()
-				```
-			"""
-            ).strip(),
+                main()
+                ```
+            """).strip(),
             #
             #
             #
-            "regen_code_prompt": dedent(
-                """
-				Given these errors:
-				<Errors>
-				{errors}
-				</Errors>
-				And the code it's from:
-				<Code>
-				{previous_code}
-				</Code>
-				You are to generate code that fixes the error but doesn't stray too much from the original code, in this format:
-				```python
-				from dotenv import load_dotenv
-				import ...
+            "regen_code_prompt": dedent("""
+                Given these errors:
+                <Errors>
+                {errors}
+                </Errors>
+                And the code it's from:
+                <Code>
+                {previous_code}
+                </Code>
+                You are to generate code that fixes the error but doesn't stray too much from the original code, in this format:
+                ```python
+                from dotenv import load_dotenv
+                import ...
 
-				load_dotenv()
+                load_dotenv()
 
-				def main():
-					....
+                def main():
+                    ....
 
-				main()
-				```
-				Please generate the code.
-			"""
-            ).strip(),
+                main()
+                ```
+                Please generate the code.
+            """).strip(),
         }
 
 
 class MarketingAgent:
-    """Agent responsible for executing marketing strategies based on social media data and notifications."""
-
+    """
+    Agent responsible for executing marketing strategies based on social media data and notifications.
+    
+    This class orchestrates the entire marketing workflow, including system preparation,
+    research code generation, strategy formulation, and marketing code execution.
+    It integrates with various components like RAG, database, sensors, and code execution
+    to create a complete marketing agent.
+    """
     def __init__(
         self,
         agent_id: str,
@@ -365,7 +382,7 @@ class MarketingAgent:
     ):
         """
         Initialize the marketing agent with all required components.
-
+        
         Args:
                 agent_id (str): Unique identifier for this agent
                 rag (RAGClient): Client for retrieval-augmented generation
@@ -386,13 +403,20 @@ class MarketingAgent:
         self.chat_history = ChatHistory()
 
     def reset(self) -> None:
-        """Reset the agent's chat history."""
+        """
+        Reset the agent's chat history.
+        
+        This method clears any existing conversation history to start fresh.
+        """
         self.chat_history = ChatHistory()
 
     def prepare_system(self, role: str, time: str, metric_name: str, metric_state: str):
         """
         Prepare the system prompt for the agent.
-
+        
+        This method generates the initial system prompt that sets the context
+        for the agent's operation, including its role, time context, and metrics.
+        
         Args:
                 role (str): The role of the agent (e.g., "influencer")
                 time (str): Current time information
@@ -421,7 +445,10 @@ class MarketingAgent:
     ) -> Result[Tuple[str, ChatHistory], str]:
         """
         Generate research code for the first time.
-
+        
+        This method creates research code when the agent has no prior context,
+        using only the available APIs.
+        
         Args:
                 apis (List[str]): List of APIs available to the agent
 
@@ -458,7 +485,10 @@ class MarketingAgent:
     ) -> Result[Tuple[str, ChatHistory], str]:
         """
         Generate research code with context.
-
+        
+        This method creates research code when the agent has prior context,
+        including notifications, previous strategies, and RAG results.
+        
         Args:
                 notifications_str (str): String containing recent notifications
                 prev_strategy (str): Description of the previous strategy
@@ -498,11 +528,14 @@ class MarketingAgent:
         notifications_str: str,
         research_output_str: str,
         metric_name: str,
-        time: str,
+        time: str
     ) -> Result[Tuple[str, ChatHistory], str]:
         """
         Generate a marketing strategy.
-
+        
+        This method formulates a marketing strategy based on notifications
+        and research output.
+        
         Args:
                 notifications_str (str): String containing recent notifications
                 research_output_str (str): Output from the research code
@@ -542,7 +575,10 @@ class MarketingAgent:
     ) -> Result[Tuple[str, ChatHistory], str]:
         """
         Generate code for implementing a marketing strategy.
-
+        
+        This method creates code that will implement a marketing strategy
+        using the available APIs.
+        
         Args:
                 strategy_output (str): Output from the strategy formulation
                 apis (List[str]): List of APIs available to the agent
@@ -576,7 +612,10 @@ class MarketingAgent:
     ) -> Result[Tuple[str, ChatHistory], str]:
         """
         Generate improved code after errors.
-
+        
+        This method regenerates code that encountered errors during execution,
+        using the original code and error messages to create a fixed version.
+        
         Args:
                 prev_code (str): The code that encountered errors
                 errors (str): Error messages from code execution

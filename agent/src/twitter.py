@@ -18,16 +18,18 @@ from result import Err, Ok, Result, UnwrapError
 class TweetData:
     """
     Data class representing a tweet with its essential attributes.
-
+    
+    This class encapsulates the core information about a tweet, including
+    its ID, content, creation time, author information, and thread context.
+    
     Attributes:
-            id (str | None): The unique identifier of the tweet
-            text (str | None): The content/text of the tweet
-            created_at (str | None): The timestamp when the tweet was created
-            author_id (str | None): The unique identifier of the tweet's author
-            author_username (str | None): The username of the tweet's author
-            thread_id (str | None): The ID of the thread this tweet belongs to, if any
+        id (str | None): The unique identifier of the tweet
+        text (str | None): The content/text of the tweet
+        created_at (str | None): The timestamp when the tweet was created
+        author_id (str | None): The unique identifier of the tweet's author
+        author_username (str | None): The username of the tweet's author
+        thread_id (str | None): The ID of the thread this tweet belongs to, if any
     """
-
     id: str | None = None
     text: str | None = None
     created_at: str | None = None
@@ -37,7 +39,15 @@ class TweetData:
 
 
 def is_tweet_data_list(xs: List[Any]) -> TypeGuard[List[TweetData]]:
-    """Type guard function to check if a list contains only TweetData objects."""
+    """
+    Type guard function to check if a list contains only TweetData objects.
+    
+    Args:
+        xs (List[Any]): The list to check
+        
+    Returns:
+        TypeGuard[List[TweetData]]: True if all items in the list are TweetData objects
+    """
     return all(isinstance(x, TweetData) for x in xs)
 
 
@@ -45,33 +55,48 @@ def is_tweet_data_list(xs: List[Any]) -> TypeGuard[List[TweetData]]:
 class AccountData:
     """
     Data class representing a Twitter account with its essential attributes.
-
+    
+    This class encapsulates the core information about a Twitter account,
+    including its ID, username, and follower count.
+    
     Attributes:
-            id (str | None): The unique identifier of the account
-            username (str | None): The username of the account
-            followers_count (int | None): The number of followers the account has
+        id (str | None): The unique identifier of the account
+        username (str | None): The username of the account
+        followers_count (int | None): The number of followers the account has
     """
-
     id: str | None = None
     username: str | None = None
     followers_count: int | None = None
 
 
 def is_account_data_list(xs: List[Any]) -> TypeGuard[List[AccountData]]:
-    """Type guard function to check if a list contains only AccountData objects."""
+    """
+    Type guard function to check if a list contains only AccountData objects.
+    
+    Args:
+        xs (List[Any]): The list to check
+        
+    Returns:
+        TypeGuard[List[AccountData]]: True if all items in the list are AccountData objects
+    """
     return all(isinstance(x, AccountData) for x in xs)
 
 
 class TweepyTwitterClient:
-    """Client for interacting with the Twitter API using Tweepy."""
-
+    """
+    Client for interacting with the Twitter API using Tweepy.
+    
+    This class provides a comprehensive interface to Twitter's functionality,
+    including posting tweets, replying, liking, retweeting, and retrieving
+    information about tweets and accounts.
+    """
     def __init__(self, client: tweepy.Client, api_client: tweepy.API):
         """
         Initialize the Twitter client with Tweepy clients.
-
+        
         Args:
-                client (tweepy.Client): The Tweepy Client instance for v2 API access
-                api_client (tweepy.API): The Tweepy API instance for v1.1 API access
+            client (tweepy.Client): The Tweepy Client instance for v2 API access
+            api_client (tweepy.API): The Tweepy API instance for v1.1 API access
         """
         self.client = client
         self.api_client = api_client
@@ -79,11 +104,14 @@ class TweepyTwitterClient:
     def get_count_of_me_likes(self) -> Result[int, str]:
         """
         Get the total number of likes (favorites) for the authenticated user.
-
+        
+        This method retrieves the authenticated user's information and returns
+        the count of tweets they have liked (favorited).
+        
         Returns:
-                Result[int, str]:
-                        - Ok with total likes count on success
-                        - Err with error message on failure
+            Result[int, str]: 
+                - Ok with total likes count on success
+                - Err with error message on failure
         """
         try:
             get_me_data = self.client.get_me()
@@ -115,15 +143,17 @@ class TweepyTwitterClient:
     ) -> Result[TweetData, str]:
         """
         Reply to a specific tweet with the provided text.
-
+        
+        This method creates a new tweet that is a reply to the specified tweet ID.
+        
         Args:
-                text (str): The content of the reply tweet
-                tweet_id (str): The ID of the tweet to reply to
-
+            text (str): The content of the reply tweet
+            tweet_id (str): The ID of the tweet to reply to
+            
         Returns:
-                Result[TweetData, str]:
-                        - Ok with TweetData of the created reply on success
-                        - Err with error message on failure
+            Result[TweetData, str]:
+                - Ok with TweetData of the created reply on success
+                - Err with error message on failure
         """
         try:
             create_tweet_data = self.client.create_tweet(
@@ -158,14 +188,16 @@ class TweepyTwitterClient:
     ) -> Result[TweetData, str]:
         """
         Post a new tweet with the provided text.
-
+        
+        This method creates a new standalone tweet with the specified content.
+        
         Args:
-                text (str): The content of the tweet to post
-
+            text (str): The content of the tweet to post
+            
         Returns:
-                Result[TweetData, str]:
-                        - Ok with TweetData of the created tweet on success
-                        - Err with error message on failure
+            Result[TweetData, str]:
+                - Ok with TweetData of the created tweet on success
+                - Err with error message on failure
         """
         try:
             create_tweet_data = self.client.create_tweet(
@@ -183,9 +215,7 @@ class TweepyTwitterClient:
                 f"TweepyTwitterClient.post_tweet: {e}, `create_tweet_data` is {create_tweet_data}"
             )
         except Exception as e:
-            return Err(
-                f"TweepyTwitterClient.post_tweet: Tweepy create tweet failed: {e}"
-            )
+            return Err(f"TweepyTwitterClient.post_tweet: Tweepy create tweet failed: {e}")
 
         data = TweetData(
             id=create_tweet_data.data["id"],
@@ -202,15 +232,18 @@ class TweepyTwitterClient:
     ) -> Result[TweetData, str]:
         """
         Create a quote tweet referencing another tweet with added commentary.
-
+        
+        This method creates a new tweet that quotes (references) an existing tweet
+        and adds the specified text as commentary.
+        
         Args:
-                text (str): The commentary text to add to the quote tweet
-                tweet_id (str): The ID of the tweet to quote
-
+            text (str): The commentary text to add to the quote tweet
+            tweet_id (str): The ID of the tweet to quote
+            
         Returns:
-                Result[TweetData, str]:
-                        - Ok with TweetData of the created quote tweet on success
-                        - Err with error message on failure
+            Result[TweetData, str]:
+                - Ok with TweetData of the created quote tweet on success
+                - Err with error message on failure
         """
         try:
             # Get the original tweet URL
@@ -232,9 +265,7 @@ class TweepyTwitterClient:
             ), "Original author data doesnt have data"
 
             # Construct the URL for the original tweet
-            original_tweet_url = (
-                f"https://twitter.com/{original_author.data.username}/status/{tweet_id}"
-            )
+            original_tweet_url = f"https://twitter.com/{original_author.data.username}/status/{tweet_id}"
 
             # Create the quote tweet
             create_tweet_data = self.client.create_tweet(
@@ -277,14 +308,16 @@ class TweepyTwitterClient:
     ) -> Result[None, str]:
         """
         Like (favorite) a specific tweet.
-
+        
+        This method adds a like to the specified tweet using the authenticated user's account.
+        
         Args:
-                tweet_id (str): The ID of the tweet to like
-
+            tweet_id (str): The ID of the tweet to like
+            
         Returns:
-                Result[None, str]:
-                        - Ok with None on successful like
-                        - Err with error message on failure
+            Result[None, str]:
+                - Ok with None on successful like
+                - Err with error message on failure
         """
         try:
             like_tweet_data = self.client.like(tweet_id=tweet_id)
@@ -304,14 +337,16 @@ class TweepyTwitterClient:
     def retweet_tweet(self, tweet_id: str) -> Result[None, str]:
         """
         Retweet a specific tweet.
-
+        
+        This method retweets the specified tweet using the authenticated user's account.
+        
         Args:
-                tweet_id (str): The ID of the tweet to retweet
-
+            tweet_id (str): The ID of the tweet to retweet
+            
         Returns:
-                Result[None, str]:
-                        - Ok with None on successful retweet
-                        - Err with error message on failure
+            Result[None, str]:
+                - Ok with None on successful retweet
+                - Err with error message on failure
         """
         try:
             retweet_tweet_data = self.client.retweet(tweet_id=tweet_id)
@@ -333,11 +368,13 @@ class TweepyTwitterClient:
     def get_me_id(self) -> Result[str, str]:
         """
         Get the authenticated user's Twitter ID.
-
+        
+        This method retrieves the ID of the currently authenticated Twitter user.
+        
         Returns:
-                Result[str, str]:
-                        - Ok with the user's ID as a string on success
-                        - Err with error message on failure
+            Result[str, str]:
+                - Ok with the user's ID as a string on success
+                - Err with error message on failure
         """
         try:
             get_me_data = self.client.get_me()
@@ -360,14 +397,17 @@ class TweepyTwitterClient:
     def get_tweet(self, tweet_id: str) -> Result[TweetData, str]:
         """
         Retrieve a specific tweet by its ID.
-
+        
+        This method fetches a tweet using its unique identifier and returns
+        the tweet data in a structured format.
+        
         Args:
-                tweet_id (str): The ID of the tweet to retrieve
-
+            tweet_id (str): The ID of the tweet to retrieve
+            
         Returns:
-                Result[TweetData, str]:
-                        - Ok with TweetData containing the tweet information on success
-                        - Err with error message on failure
+            Result[TweetData, str]:
+                - Ok with TweetData containing the tweet information on success
+                - Err with error message on failure
         """
         try:
             get_tweet_data = self.client.get_tweet(tweet_id)
@@ -398,18 +438,22 @@ class TweepyTwitterClient:
     ) -> Result[List[TweetData], str]:
         """
         Retrieve tweets that mention a specific user.
-
+        
+        This method fetches recent tweets that mention the specified user ID,
+        starting from the provided timestamp. It includes additional tweet
+        information such as creation time, conversation ID, and author ID.
+        
         Args:
-                id (str): The ID of the user whose mentions to retrieve
-                start_time (str): The timestamp to start retrieving mentions from
-
+            id (str): The ID of the user whose mentions to retrieve
+            start_time (str): The timestamp to start retrieving mentions from
+            
         Returns:
-                Result[List[TweetData], str]:
-                        - Ok with a list of TweetData objects representing the mentions on success
-                        - Err with error message on failure
-
+            Result[List[TweetData], str]:
+                - Ok with a list of TweetData objects representing the mentions on success
+                - Err with error message on failure
+                
         Note:
-                This method retrieves a maximum of 10 most recent mentions.
+            This method retrieves a maximum of 10 most recent mentions.
         """
         try:
             response = self.client.get_users_mentions(

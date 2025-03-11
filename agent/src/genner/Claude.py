@@ -21,12 +21,15 @@ class ClaudeGenner(Genner):
     ):
         """
         Initialize the Claude-based generator.
-
+        
+        This constructor sets up the generator with Anthropic's Claude configuration
+        and streaming function.
+        
         Args:
-                client (Anthropic): Anthropic API client
-                config (ClaudeConfig): Configuration for the Claude model
-                stream_fn (Callable[[str], None] | None): Function to call with streamed tokens,
-                        or None to disable streaming
+            client (Anthropic): Anthropic API client
+            config (ClaudeConfig): Configuration for the Claude model
+            stream_fn (Callable[[str], None] | None): Function to call with streamed tokens,
+                or None to disable streaming
         """
         super().__init__("claude", True if stream_fn else False)
         self.client = client
@@ -36,17 +39,18 @@ class ClaudeGenner(Genner):
     def ch_completion(self, messages: ChatHistory) -> Result[str, str]:
         """
         Generate a completion using the Claude API.
-        - send the chat history to the Claude API and retrieves a completion response.
-        - optional streaming support. 
-        - Separates the system message from the rest of the chat history.
-
+        
+        This method sends the chat history to the Claude API and retrieves
+        a completion response, with optional streaming support. It separates
+        the system message from the rest of the chat history.
+        
         Args:
-                messages (ChatHistory): Chat history containing the conversation context
-
+            messages (ChatHistory): Chat history containing the conversation context
+            
         Returns:
-                Result[str, str]:
-                        Ok(str): The generated text if successful
-                        Err(str): Error message if the API call fails
+            Result[str, str]:
+                Ok(str): The generated text if successful
+                Err(str): Error message if the API call fails
         """
         system_message = messages.messages[0]
         assert system_message.role == "system"
@@ -95,19 +99,21 @@ class ClaudeGenner(Genner):
     ) -> Result[Tuple[List[str], str], str]:
         """
         Generate code using the Claude API.
-        - Getting a completion from the model
-        - Extracting code blocks from the response
-
+        
+        This method handles the complete process of generating code:
+        1. Getting a completion from the model
+        2. Extracting code blocks from the response
+        
         Args:
-                messages (ChatHistory): Chat history containing the conversation context
-                blocks (List[str]): XML tag names to extract content from before processing into code
-
+            messages (ChatHistory): Chat history containing the conversation context
+            blocks (List[str]): XML tag names to extract content from before processing into code
+            
         Returns:
-                Result[Tuple[List[str], str], str]:
-                        Ok(Tuple[List[str], str]): Tuple containing:
-                                - List[str]: Processed code blocks
-                                - str: Raw response from the model
-                        Err(str): Error message if generation failed
+            Result[Tuple[List[str], str], str]:
+                Ok(Tuple[List[str], str]): Tuple containing:
+                    - List[str]: Processed code blocks
+                    - str: Raw response from the model
+                Err(str): Error message if generation failed
         """
         try:
             completion_result = self.ch_completion(messages)
@@ -139,19 +145,21 @@ class ClaudeGenner(Genner):
     ) -> Result[Tuple[List[List[str]], str], str]:
         """
         Generate lists using the Claude API.
-        - Getting a completion from the model
-        - Extracting lists from the response
-
+        
+        This method handles the complete process of generating structured lists:
+        1. Getting a completion from the model
+        2. Extracting lists from the response
+        
         Args:
-                messages (ChatHistory): Chat history containing the conversation context
-                blocks (List[str]): XML tag names to extract content from before processing into lists
-
+            messages (ChatHistory): Chat history containing the conversation context
+            blocks (List[str]): XML tag names to extract content from before processing into lists
+            
         Returns:
-                Result[Tuple[List[List[str]], str], str]:
-                        Ok(Tuple[List[List[str]], str]): Tuple containing:
-                                - List[List[str]]: Processed lists of items
-                                - str: Raw response from the model
-                        Err(str): Error message if generation failed
+            Result[Tuple[List[List[str]], str], str]:
+                Ok(Tuple[List[List[str]], str]): Tuple containing:
+                    - List[List[str]]: Processed lists of items
+                    - str: Raw response from the model
+                Err(str): Error message if generation failed
         """
         try:
             completion_result = self.ch_completion(messages)
@@ -182,15 +190,18 @@ class ClaudeGenner(Genner):
     def extract_code(response: str, blocks: List[str] = [""]) -> Result[List[str], str]:
         """
         Extract code blocks from a Claude model response.
-
+        
+        This static method extracts Python code blocks from the raw model response
+        using regex patterns to find code within markdown code blocks.
+        
         Args:
-                response (str): The raw response from the model
-                blocks (List[str]): XML tag names to extract content from before processing into code
-
+            response (str): The raw response from the model
+            blocks (List[str]): XML tag names to extract content from before processing into code
+            
         Returns:
-                Result[List[str], str]:
-                        Ok(List[str]): List of extracted code blocks
-                        Err(str): Error message if extraction failed
+            Result[List[str], str]:
+                Ok(List[str]): List of extracted code blocks
+                Err(str): Error message if extraction failed
         """
         extracts: List[str] = []
 
@@ -224,15 +235,18 @@ class ClaudeGenner(Genner):
     ) -> Result[List[List[str]], str]:
         """
         Extract lists from a Claude model response.
-
+        
+        This static method extracts YAML-formatted lists from the raw model response
+        using regex patterns to find YAML content within markdown code blocks.
+        
         Args:
-                response (str): The raw response from the model
-                blocks (List[str]): XML tag names to extract content from before processing into lists
-
+            response (str): The raw response from the model
+            blocks (List[str]): XML tag names to extract content from before processing into lists
+            
         Returns:
-                Result[List[List[str]], str]:
-                        Ok(List[List[str]]): List of extracted lists
-                        Err(str): Error message if extraction failed
+            Result[List[List[str]], str]:
+                Ok(List[List[str]]): List of extracted lists
+                Err(str): Error message if extraction failed
         """
         extracts: List[List[str]] = []
 
@@ -258,4 +272,3 @@ class ClaudeGenner(Genner):
                 )
 
         return Ok(extracts)
-

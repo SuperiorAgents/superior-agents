@@ -21,17 +21,6 @@ class ManagerClient:
         self.base_url = base_url
         self.session_id = session_id
 
-    def push_token(self, token: str):
-        """
-        Push a token to the session as a log message.
-
-        Args:
-                token (str): The token to push to the session
-        """
-        url = f"{self.base_url}/sessions/{self.session_id}/push_token"
-        payload = {"type": "log", "message": token}
-        requests.post(url, json=payload)
-
     def fetch_fe_data(self, type: str):
         """
         Fetch frontend data for the specified agent type.
@@ -53,51 +42,6 @@ class ManagerClient:
         )
 
         try:
-            url = f"{self.base_url}/sessions/{self.session_id}/logs"
-            response = requests.get(
-                url, headers={"Accept": "text/event-stream"}, stream=True
-            )
-            for line in response.iter_lines():
-                if line:
-                    decoded_line = line.decode("utf-8")
-                    if decoded_line.startswith("data: "):
-                        data = json.loads(decoded_line[6:])
-                        if "logs" in data:
-                            log_entries = data["logs"].strip().split("\n")
-                            if log_entries:
-                                first_log = json.loads(log_entries[0])
-                                if first_log["type"] == "request":
-                                    payload = json.loads(
-                                        json.dumps(first_log["payload"], indent=2)
-                                    )
-
-                                    for key in payload:
-                                        if key in [
-                                            "agent_id",
-                                            "agent_name",
-                                            "model",
-                                            "agent_type",
-                                            "trading_instruments",
-                                            "research_tools",
-                                            "notifications",
-                                            "time",
-                                            "metric_name",
-                                            "role",
-                                            "twitter_mention",
-                                            "hyperliquid_config",
-                                            "twitter_access_token",
-                                        ]:
-                                            fe_data[key] = payload[key]
-
-                                    if "prompts" in payload:
-                                        prompt_dict = {
-                                            item["name"]: item["prompt"]
-                                            for item in payload["prompts"]
-                                            if isinstance(item, dict) and "name" in item
-                                        }
-                                        fe_data["prompts"].update(prompt_dict)
-                                    break
-
             # Get default prompts
             if type == "trading":
                 default_prompts = TradingPromptGenerator.get_default_prompts()

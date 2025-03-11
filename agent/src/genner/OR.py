@@ -1,51 +1,49 @@
 import re
-from typing import Callable, Generator, List, Tuple
+from typing import Callable, List, Tuple
 
 import yaml
-from loguru import logger
-from openai import OpenAI
-from openai.types.chat import ChatCompletionChunk
 from result import Err, Ok, Result
+from openai import OpenAI
 
-from src.config import DeepseekConfig
-from src.helper import extract_content
 from src.client.openrouter import OpenRouter
+from src.config import ClaudeConfig, OpenRouterConfig
+from src.helper import extract_content
 from src.types import ChatHistory
 
 from .Base import Genner
 
 
-class DeepseekGenner(Genner):
+class OpenRouterGenner(Genner):
     def __init__(
         self,
-        client: OpenAI | OpenRouter,
-        config: DeepseekConfig,
+        client: OpenRouter,
+        config: OpenRouterConfig,
         stream_fn: Callable[[str], None] | None,
     ):
         """
-        Initialize the Deepseek-based generator.
+        Initialize the Claude-based generator.
 
-        This constructor sets up the generator with Deepseek configuration
-        and streaming function. It supports both OpenAI and OpenRouter clients.
+        This constructor sets up the generator with Anthropic's Claude configuration
+        and streaming function.
 
         Args:
-            client (OpenAI | OpenRouter): OpenAI or OpenRouter API client
-            config (DeepseekConfig): Configuration for the Deepseek model
+            client (Anthropic): Anthropic API client
+            config (ClaudeConfig): Configuration for the Claude model
             stream_fn (Callable[[str], None] | None): Function to call with streamed tokens,
                 or None to disable streaming
         """
-        super().__init__("deepseek", True if stream_fn else False)
+        super().__init__(f"openrouter-{config.model}", True if stream_fn else False)
         self.client = client
         self.config = config
         self.stream_fn = stream_fn
 
     def ch_completion(self, messages: ChatHistory) -> Result[str, str]:
         """
-        Generate a completion using the Deepseek model.
+        Generate a completion using the Claude API.
 
-        This method sends the chat history to either the OpenAI API or OpenRouter API
-        (depending on the client type) and retrieves a completion response, with
-        optional streaming support. It handles the differences between the two APIs.
+        This method sends the chat history to the Claude API and retrieves
+        a completion response, with optional streaming support. It separates
+        the system message from the rest of the chat history.
 
         Args:
             messages (ChatHistory): Chat history containing the conversation context
@@ -58,84 +56,45 @@ class DeepseekGenner(Genner):
         final_response = ""
 
         try:
-            if isinstance(self.client, OpenAI):
-                if self.do_stream:
-                    assert self.stream_fn is not None
+            if self.do_stream:
+                assert self.stream_fn is not None
 
-                    stream: Generator[ChatCompletionChunk, None, None] = (
-                        self.client.chat.completions.create(
-                            model=self.config.model,
-                            messages=messages.as_native(),  # type: ignore
-                            max_tokens=self.config.max_tokens,
-                            temperature=self.config.temperature,
-                            stream=True,
-                        )
-                    )
+                stream_ = self.client.create_chat_completion_stream(
+                    messages=messages.as_native(),
+                    model=self.config.model,
+                    max_tokens=self.config.max_tokens,
+                    temperature=self.config.temperature,
+                )
 
-                    for chunk in stream:
-                        if chunk.choices[0].delta.content is not None:
-                            token = chunk.choices[0].delta.content
+                reasoning_entered = False
+                main_entered = False
 
-                            if not isinstance(token, str):
-                                continue
+                for token, token_type in stream_:
+                    if not reasoning_entered and token_type == "reasoning":
+                        reasoning_entered = True
+                        self.stream_fn("<think>\n")
+                    if reasoning_entered and not main_entered and token_type == "main":
+                        main_entered = True
+                        self.stream_fn("</think>\n")
+                    if token_type == "main":
+                        final_response += token
 
-                            final_response += token
-                            self.stream_fn(token)
-                else:
-                    response = self.client.chat.completions.create(
-                        model=self.config.model,
-                        messages=messages.as_native(),  # type: ignore
-                        max_tokens=self.config.max_tokens,
-                        temperature=self.config.temperature,
-                        stream=False,
-                    )
-
-                    final_response = response.choices[0].message.content
-
-                assert isinstance(final_response, str)
+                    self.stream_fn(token)
+                self.stream_fn("\n")
             else:
-                if self.do_stream:
-                    assert self.stream_fn is not None
+                final_response = self.client.create_chat_completion(
+                    messages=messages.as_native(),
+                    model=self.config.model,
+                    max_tokens=self.config.max_tokens,
+                    temperature=self.config.temperature,
+                )
+            assert isinstance(final_response, str)
 
-                    stream_ = self.client.create_chat_completion_stream(
-                        messages=messages.as_native(),
-                        model=self.config.model,
-                        max_tokens=self.config.max_tokens,
-                        temperature=self.config.temperature,
-                    )
-
-                    reasoning_entered = False
-                    main_entered = False
-
-                    for token, token_type in stream_:
-                        if not reasoning_entered and token_type == "reasoning":
-                            reasoning_entered = True
-                            self.stream_fn("<think>\n")
-                        if (
-                            reasoning_entered
-                            and not main_entered
-                            and token_type == "main"
-                        ):
-                            main_entered = True
-                            self.stream_fn("</think>\n")
-                        if token_type == "main":
-                            final_response += token
-
-                        self.stream_fn(token)
-                    self.stream_fn("\n")
-                else:
-                    final_response = self.client.create_chat_completion(
-                        messages=messages.as_native(),
-                        model=self.config.model,
-                        max_tokens=self.config.max_tokens,
-                        temperature=self.config.temperature,
-                    )
-                assert isinstance(final_response, str)
         except AssertionError as e:
-            return Err(f"DeepseekGenner.ch_completion: {e}")
+            return Err(f"ClaudeGenner.ch_completion: {e}")
         except Exception as e:
             return Err(
-                f"DeepseekGenner.ch_completion: An unexpected error while generating code with {self.config}, response: {response} occured: \n{e}"
+                f"An unexpected Claude API error while generating code with {self.config.name}, occurred: \n{e}"
             )
 
         return Ok(final_response)
@@ -144,7 +103,7 @@ class DeepseekGenner(Genner):
         self, messages: ChatHistory, blocks: List[str] = [""]
     ) -> Result[Tuple[List[str], str], str]:
         """
-        Generate code using the Deepseek model.
+        Generate code using the Claude API.
 
         This method handles the complete process of generating code:
         1. Getting a completion from the model
@@ -166,7 +125,7 @@ class DeepseekGenner(Genner):
 
             if err := completion_result.err():
                 return Err(
-                    f"OllamaGenner.generate_code: completion_result.is_err(): \n{err}"
+                    f"ClaudeGenner.generate_code: completion_result.is_err(): \n{err}"
                 )
 
             raw_response = completion_result.unwrap()
@@ -175,13 +134,13 @@ class DeepseekGenner(Genner):
 
             if err := extract_code_result.err():
                 return Err(
-                    f"DeepseekGenner.generate_code: extract_code_result.is_err(): \n{err}"
+                    f"ClaudeGenner.generate_code: extract_code_result.is_err(): \n{err}"
                 )
 
             processed_code = extract_code_result.unwrap()
         except Exception as e:
             return Err(
-                f"An unexpected error while generating code with {self.config.name}, occured: \n{e}"
+                f"An unexpected error while generating code with {self.config.name}, occurred: \n{e}"
             )
 
         return Ok((processed_code, raw_response))
@@ -190,7 +149,7 @@ class DeepseekGenner(Genner):
         self, messages: ChatHistory, blocks: List[str] = [""]
     ) -> Result[Tuple[List[List[str]], str], str]:
         """
-        Generate lists using the Deepseek model.
+        Generate lists using the Claude API.
 
         This method handles the complete process of generating structured lists:
         1. Getting a completion from the model
@@ -212,7 +171,7 @@ class DeepseekGenner(Genner):
 
             if err := completion_result.err():
                 return Err(
-                    f"DeepseekGenner.generate_list: completion_result.is_err(): \n{err}"
+                    f"ClaudeGenner.generate_list: completion_result.is_err(): \n{err}"
                 )
 
             raw_response = completion_result.unwrap()
@@ -221,13 +180,13 @@ class DeepseekGenner(Genner):
 
             if err := extract_list_result.err():
                 return Err(
-                    f"DeepseekGenner.generate_list: extract_list_result.is_err(): \n{err}"
+                    f"ClaudeGenner.generate_list: extract_list_result.is_err(): \n{err}"
                 )
 
             extracted_list = extract_list_result.unwrap()
         except Exception as e:
             return Err(
-                f"An unexpected error while generating list with {self.config.name}, raw response: {raw_response} occured: \n{e}"
+                f"An unexpected error while generating list with {self.config.name}, raw response: {raw_response} occurred: \n{e}"
             )
 
         return Ok((extracted_list, raw_response))
@@ -235,7 +194,7 @@ class DeepseekGenner(Genner):
     @staticmethod
     def extract_code(response: str, blocks: List[str] = [""]) -> Result[List[str], str]:
         """
-        Extract code blocks from a Deepseek model response.
+        Extract code blocks from a Claude model response.
 
         This static method extracts Python code blocks from the raw model response
         using regex patterns to find code within markdown code blocks.
@@ -252,7 +211,6 @@ class DeepseekGenner(Genner):
         extracts: List[str] = []
 
         for block in blocks:
-            # Extract code from the response
             try:
                 response = extract_content(response, block)
                 regex_pattern = r"```python\n([\s\S]*?)```"
@@ -268,7 +226,7 @@ class DeepseekGenner(Genner):
 
                 extracts.append(code)
             except AssertionError as e:
-                return Err(f"DeepseekGenner.extract_code: Regex failed: {e}")
+                return Err(f"ClaudeGenner.extract_code: Regex failed: {e}")
             except Exception as e:
                 return Err(
                     f"An unexpected error while extracting code occurred, raw response: {response}, error: \n{e}"
@@ -281,7 +239,7 @@ class DeepseekGenner(Genner):
         response: str, blocks: List[str] = [""]
     ) -> Result[List[List[str]], str]:
         """
-        Extract lists from a Deepseek model response.
+        Extract lists from a Claude model response.
 
         This static method extracts YAML-formatted lists from the raw model response
         using regex patterns to find YAML content within markdown code blocks.
@@ -300,8 +258,6 @@ class DeepseekGenner(Genner):
         for block in blocks:
             try:
                 response = extract_content(response, block)
-                # Remove markdown code block markers and find yaml content
-                # Updated regex pattern to handle triple backticks
                 regex_pattern = r"```yaml\n(.*?)```"
                 yaml_match = re.search(regex_pattern, response, re.DOTALL)
 
@@ -314,12 +270,8 @@ class DeepseekGenner(Genner):
 
                 extracts.append(yaml_content)
             except AssertionError as e:
-                logger.error(f"DeepseekGenner.extract_list: Assertion error: {e}")
-                return Err(f"DeepseekGenner.extract_list: Assertion error: {e}")
+                return Err(f"ClaudeGenner.extract_list: Assertion error: {e}")
             except Exception as e:
-                logger.error(
-                    f"An unexpected error while extracting code occurred, raw response: {response}, error: \n{e}"
-                )
                 return Err(
                     f"An unexpected error while extracting code occurred, raw response: {response}, error: \n{e}"
                 )

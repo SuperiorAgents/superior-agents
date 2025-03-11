@@ -15,17 +15,17 @@ def summarize(
     Summarize a list of talking points using the provided language model.
 
     Args:
-            genner: An instance of the Genner class that handles text generation
-            talking_points: A list of strings containing the points to be summarized
-            template: Optional template string for formatting the prompt
-            max_retries: Maximum number of retry attempts for failed generations
+        genner: An instance of the Genner class that handles text generation
+        talking_points: A list of strings containing the points to be summarized
+        template: Optional template string for formatting the prompt
+        max_retries: Maximum number of retry attempts for failed generations
 
     Returns:
-            str: A summarized version of the input talking points
+        str: A summarized version of the input talking points
 
     Raises:
-            SummarizerError: If the summarization fails after max_retries attempts
-            ValueError: If talking_points is empty or contains invalid data
+        SummarizerError: If the summarization fails after max_retries attempts
+        ValueError: If talking_points is empty or contains invalid data
     """
     if not talking_points:
         raise ValueError("talking_points cannot be empty")
@@ -48,7 +48,7 @@ def summarize(
             Message(
                 role="user",
                 content=talking_points_formatted,
-            ),
+            )
         ]
     )
 
@@ -75,26 +75,24 @@ def get_summarizer(
     Create a partial function for summarization with predefined parameters.
 
     Args:
-            genner: An instance of the Genner class
-            custom_template: Optional custom template for the summary prompt
-            max_retries: Maximum number of retry attempts for failed generations
+        genner: An instance of the Genner class
+        custom_template: Optional custom template for the summary prompt
+        max_retries: Maximum number of retry attempts for failed generations
 
     Returns:
-            Callable: A function that takes a list of strings and returns a summary
+        Callable: A function that takes a list of strings and returns a summary
 
     Example:
-            >>> summarizer = get_summarizer(genner)
-            >>> summary = summarizer(["Point 1", "Point 2", "Point 3"])
+        >>> summarizer = get_summarizer(genner)
+        >>> summary = summarizer(["Point 1", "Point 2", "Point 3"])
     """
     genner.set_do_stream(False)
-
+    
     return partial(
         summarize,
         genner,
-        template=(
-            custom_template
-            if custom_template
-            else "Please summarize the following points:\n{to_summarize}"
-        ),
+        template=custom_template
+        if custom_template
+        else "Please summarize the following points:\n{to_summarize}",
         max_retries=max_retries,
     )

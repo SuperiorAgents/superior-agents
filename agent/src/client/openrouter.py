@@ -35,10 +35,10 @@ class OpenRouter:
         Initialize the OpenRouter client.
 
         Args:
-                api_key: Your OpenRouter API key
-                base_url: The base URL for OpenRouter API
-                timeout: Request timeout in seconds
-                include_reasoning: Whether to include reasoning tokens in streaming responses
+            api_key: Your OpenRouter API key
+            base_url: The base URL for OpenRouter API
+            timeout: Request timeout in seconds
+            include_reasoning: Whether to include reasoning tokens in streaming responses
         """
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
@@ -57,8 +57,8 @@ class OpenRouter:
     def _prepare_payload(
         self,
         messages: List[Dict],
-        temperature: float = 1.0,
         providers: List[str] = [],
+        temperature: Optional[float] = None,
         model: Optional[str] = None,
         include_reasoning: Optional[bool] = None,
         max_tokens: Optional[int] = None,
@@ -67,17 +67,20 @@ class OpenRouter:
         """
         Prepare the payload for API requests.
 
+        This method formats the messages and other parameters into the structure
+        expected by the OpenRouter API.
+
         Args:
-                messages (List[Dict]): List of message dictionaries or Message objects
-                temperature (float, optional): Sampling temperature. Defaults to 1.0.
-                providers (List[str], optional): List of preferred providers. Defaults to [].
-                model (Optional[str], optional): Model to use. Defaults to None.
-                include_reasoning (Optional[bool], optional): Whether to include reasoning. Defaults to None.
-                max_tokens (Optional[int], optional): Maximum tokens to generate. Defaults to None.
-                stream (bool, optional): Whether to stream the response. Defaults to False.
+            messages (List[Dict]): List of message dictionaries or Message objects
+            temperature (float, optional): Sampling temperature. Defaults to 1.0.
+            providers (List[str], optional): List of preferred providers. Defaults to [].
+            model (Optional[str], optional): Model to use. Defaults to None.
+            include_reasoning (Optional[bool], optional): Whether to include reasoning. Defaults to None.
+            max_tokens (Optional[int], optional): Maximum tokens to generate. Defaults to None.
+            stream (bool, optional): Whether to stream the response. Defaults to False.
 
         Returns:
-                Dict[str, Any]: Formatted payload for the API request
+            Dict[str, Any]: Formatted payload for the API request
         """
         processed_messages = [
             msg if isinstance(msg, dict) else {"role": msg.role, "content": msg.content}
@@ -86,7 +89,6 @@ class OpenRouter:
 
         payload = {
             "messages": processed_messages,
-            "temperature": temperature,
             "provider": {"order": self.providers},
             "max_tokens": max_tokens,
             "include_reasoning": include_reasoning,
@@ -96,6 +98,9 @@ class OpenRouter:
 
         if not providers:
             payload["provider"] = {"order": self.providers}
+
+        if temperature is not None:
+            payload["temperature"] = temperature
 
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
@@ -111,8 +116,8 @@ class OpenRouter:
     def create_chat_completion(
         self,
         messages: List[Dict],
-        temperature: float = 1.0,
         providers: List[str] = [],
+        temperature: Optional[float] = None, 
         model: Optional[str] = None,
         include_reasoning: Optional[bool] = None,
         max_tokens: Optional[int] = None,
@@ -121,14 +126,14 @@ class OpenRouter:
         Create a non-streaming chat completion.
 
         Args:
-                messages: List of message dictionaries or Message objects
-                model: The model to use (e.g., "openai/gpt-4o", "deepseek/deepseek-r1")
-                temperature: Sampling temperature (0-2)
-                max_tokens: Maximum tokens to generate
-                **kwargs: Additional parameters to pass to the API
+            messages: List of message dictionaries or Message objects
+            model: The model to use (e.g., "openai/gpt-4o", "deepseek/deepseek-r1")
+            temperature: Sampling temperature (0-2)
+            max_tokens: Maximum tokens to generate
+            **kwargs: Additional parameters to pass to the API
 
         Returns:
-                The generated text response as a string
+            The generated text response as a string
         """
         payload = self._prepare_payload(
             messages=messages,
@@ -157,15 +162,18 @@ class OpenRouter:
         """
         Send a regular (non-streaming) request to the API.
 
+        This method handles the HTTP request to the OpenRouter API and processes
+        the response, including error handling.
+
         Args:
-                endpoint (str): API endpoint URL
-                payload (Dict): Request payload
+            endpoint (str): API endpoint URL
+            payload (Dict): Request payload
 
         Returns:
-                Dict: JSON response from the API
+            Dict: JSON response from the API
 
         Raises:
-                OpenRouterError: If an HTTP error or other exception occurs
+            OpenRouterError: If an HTTP error or other exception occurs
         """
         try:
             # Exactly mirror the requests implementation that works
@@ -192,8 +200,8 @@ class OpenRouter:
     def create_chat_completion_stream(
         self,
         messages: List[Dict],
-        temperature: float = 1.0,
         providers: List[str] = [],
+        temperature: Optional[float] = 1.0,
         model: Optional[str] = None,
         include_reasoning: Optional[bool] = None,
         max_tokens: Optional[int] = None,
@@ -202,14 +210,14 @@ class OpenRouter:
         Create a streaming chat completion with support for reasoning models.
 
         Args:
-                messages: List of message dictionaries or Message objects
-                model: The model to use (e.g., "openai/gpt-4o", "deepseek/deepseek-r1")
-                temperature: Sampling temperature (0-2)
-                max_tokens: Maximum tokens to generate
-                **kwargs: Additional parameters to pass to the API
+            messages: List of message dictionaries or Message objects
+            model: The model to use (e.g., "openai/gpt-4o", "deepseek/deepseek-r1")
+            temperature: Sampling temperature (0-2)
+            max_tokens: Maximum tokens to generate
+            **kwargs: Additional parameters to pass to the API
 
         Returns:
-                Generator yielding tuples of (content, type) where type is "reasoning" or "main"
+            Generator yielding tuples of (content, type) where type is "reasoning" or "main"
         """
         payload = self._prepare_payload(
             messages=messages,
@@ -229,21 +237,22 @@ class OpenRouter:
     ) -> Generator[Tuple[str, str], None, None]:
         """
         Stream the response from the API, handling both content and reasoning tokens.
-        - Handles the streaming HTTP request to the OpenRouter API 
-        - Processes the response chunks, separating reasoning tokens from main content tokens.
-        - Cleans up special tokens and manages the transition between reasoning and
+
+        This method handles the streaming HTTP request to the OpenRouter API and processes
+        the response chunks, separating reasoning tokens from main content tokens.
+        It cleans up special tokens and manages the transition between reasoning and
         response phases.
 
         Args:
-                endpoint (str): API endpoint URL
-                payload (Dict): Request payload
+            endpoint (str): API endpoint URL
+            payload (Dict): Request payload
 
         Returns:
-                Generator[Tuple[str, str], None, None]: Generator yielding tuples of
-                        (content, type) where type is "reasoning" or "main"
+            Generator[Tuple[str, str], None, None]: Generator yielding tuples of
+                (content, type) where type is "reasoning" or "main"
 
         Raises:
-                OpenRouterError: If an HTTP error or other exception occurs during streaming
+            OpenRouterError: If an HTTP error or other exception occurs during streaming
         """
         try:
             with self.http_client.stream(

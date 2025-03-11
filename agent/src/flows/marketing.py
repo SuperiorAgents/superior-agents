@@ -20,27 +20,29 @@ def unassisted_flow(
 ):
     """
     Execute an unassisted marketing workflow with the marketing agent.
-    - Orchestrates the complete marketing workflow.
-    - Handles retries for failed steps and saves the results to the database.
+
+    This function orchestrates the complete marketing workflow, including research,
+    strategy formulation, and marketing code execution. It handles retries for
+    failed steps and saves the results to the database.
 
     Args:
-            agent (MarketingAgent): The marketing agent to use
-            session_id (str): Identifier for the current session
-            role (str): Role of the agent (e.g., "influencer")
-            time (str): Time frame for the marketing goal
-            apis (List[str]): List of APIs available to the agent
-            metric_name (str): Name of the metric to track
-            prev_strat (StrategyData | None): Previous strategy, if any
-            notif_str (str | None): Notification string to process
-            summarizer (Callable[[List[str]], str]): Function to summarize text
+        agent (MarketingAgent): The marketing agent to use
+        session_id (str): Identifier for the current session
+        role (str): Role of the agent (e.g., "influencer")
+        time (str): Time frame for the marketing goal
+        apis (List[str]): List of APIs available to the agent
+        metric_name (str): Name of the metric to track
+        prev_strat (StrategyData | None): Previous strategy, if any
+        notif_str (str | None): Notification string to process
+        summarizer (Callable[[List[str]], str]): Function to summarize text
 
     Returns:
-            None: This function doesn't return a value but logs its progress
+        None: This function doesn't return a value but logs its progress
     """
     agent.reset()
     logger.info("Reset agent")
     logger.info("Starting on assisted trading flow")
-    # Capture initial metric state to compare with end state after execution
+
     start_metric_state = str(agent.sensor.get_metric_fn(metric_name)())
 
     try:
@@ -57,7 +59,7 @@ def unassisted_flow(
     except (AssertionError, Exception) as e:
         if isinstance(e, Exception):
             logger.warning(f"Error retrieving RAG strategy: {str(e)}")
-        # Fallback values when RAG retrieval fails
+
         rag_summary = "Unable to retrieve a relevant strategy from RAG handler..."
         rag_before_metric_state = (
             "Unable to retrieve a relevant strategy from RAG handler..."
@@ -80,7 +82,6 @@ def unassisted_flow(
     research_code_success = False
     err_acc = ""
     regen = False
-    # Retry loop for research code generation - maximum 3 attempts
     for i in range(3):
         try:
             if regen:
@@ -102,9 +103,12 @@ def unassisted_flow(
                     ).unwrap()
 
             logger.info(f"Response: {new_ch.get_latest_response()}")
-            agent.chat_history += new_ch
+
+            # Temporarily avoid new chat to reduce cost
+            # agent.chat_history += new_ch
             agent.db.insert_chat_history(session_id, new_ch)
 
+            logger.info("Running the research code in conatiner...")
             code_execution_result = agent.container_manager.run_code_in_con(
                 research_code, "trader_research_code"
             )
@@ -133,7 +137,6 @@ def unassisted_flow(
     strategy_success = False
     err_acc = ""
     regen = False
-    # Strategy generation with retry mechanism
     for i in range(3):
         try:
             if regen:
@@ -147,7 +150,8 @@ def unassisted_flow(
             ).unwrap()
 
             logger.info(f"Response: {new_ch.get_latest_response()}")
-            agent.chat_history += new_ch
+            # Temporarily avoid new chat to reduce cost
+            # agent.chat_history += new_ch
             agent.db.insert_chat_history(session_id, new_ch)
 
             strategy_success = True
@@ -176,7 +180,6 @@ def unassisted_flow(
     marketing_code_success = False
     err_acc = ""
     regen = False
-    # Generate and execute marketing code based on strategy
     for i in range(3):
         try:
             if regen:
@@ -192,9 +195,11 @@ def unassisted_flow(
 
                 logger.info(f"Response: {new_ch.get_latest_response()}")
 
-            agent.chat_history += new_ch
+            # No appending old chat
+            # agent.chat_history += new_ch
             agent.db.insert_chat_history(session_id, new_ch)
 
+            logger.info("Running the marketing code in conatiner...")
             code_execution_result = agent.container_manager.run_code_in_con(
                 marketing_code, "marketing_market_on_daily"
             )

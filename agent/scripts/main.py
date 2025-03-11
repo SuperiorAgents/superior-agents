@@ -65,7 +65,6 @@ OAI_API_KEY                 = os.getenv("OAI_API_KEY") or ""
 MANAGER_SERVICE_URL        = os.getenv("MANAGER_SERVICE_URL") or ""
 DB_SERVICE_URL             = os.getenv("DB_SERVICE_URL") or ""
 DEEPSEEK_LOCAL_SERVICE_URL = os.getenv("DEEPSEEK_LOCAL_SERVICE_URL") or ""
-VAULT_SERVICE_URL          = os.getenv("VAULT_SERVICE_URL") or ""
 TXN_SERVICE_URL            = os.getenv("TXN_SERVICE_URL") or ""
 RAG_SERVICE_URL            = os.getenv("RAG_SERVICE_URL") or ""
 
@@ -122,16 +121,13 @@ def setup_trading_agent_flow(
         deepseek_or_client=deepseek_or_client,
         deepseek_local_client=deepseek_local_client,
         anthropic_client=anthropic_client,
-        stream_fn=lambda token: manager_client.push_token(token),
-        # stream_fn=lambda token: print(token, end="", flush=True),
+        stream_fn=lambda token: print(token, end="", flush=True),
     )
     prompt_generator = TradingPromptGenerator(prompts=fe_data["prompts"])
     sensor = TradingSensor(
         agent_id=agent_id,
         infura_project_id=INFURA_PROJECT_ID,
         etherscan_api_key=ETHERSCAN_API_KEY,
-        vault_base_url=VAULT_SERVICE_URL,
-        vault_api_key=VAULT_API_KEY,
         txn_service_url=TXN_SERVICE_URL,
     )
     container_manager = ContainerManager(
@@ -223,8 +219,7 @@ def setup_marketing_agent_flow(
         deepseek_or_client=deepseek_or_client,
         deepseek_local_client=deepseek_local_client,
         anthropic_client=anthropic_client,
-        stream_fn=lambda token: manager_client.push_token(token),
-        # stream_fn=lambda token: print(token, end="", flush=True),
+        stream_fn=lambda token: print(token, end="", flush=True),
     )
 
     container_manager = ContainerManager(

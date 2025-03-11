@@ -38,8 +38,13 @@ mock_portfolio: PortfolioStatus = {
 
 
 class TradingSensor:
-    """Sensor for monitoring and retrieving trading-related metrics."""
-
+    """
+    Sensor for monitoring and retrieving trading-related metrics.
+    
+    This class provides functionality to retrieve wallet statistics and portfolio status
+    for a trading agent. It interfaces with blockchain services to get real-time data
+    about wallet balances and token holdings.
+    """
     def __init__(
         self,
         agent_id: str,
@@ -72,7 +77,10 @@ class TradingSensor:
     def get_portfolio_status(self) -> Dict[str, Any]:
         """
         Retrieve the current portfolio status for the agent.
-
+        
+        This method fetches the current wallet statistics including ETH balance
+        and token holdings from the blockchain.
+        
         Returns:
                 Dict[str, Any]: Dictionary containing wallet statistics including:
                         - eth_balance (float): ETH balance in ether
@@ -93,7 +101,10 @@ class TradingSensor:
     def get_metric_fn(self, metric_name: str = "wallet"):
         """
         Get a function that retrieves a specific metric.
-
+        
+        This method returns a callable function that, when invoked, will retrieve
+        the specified metric. Currently only supports the 'wallet' metric.
+        
         Args:
                 metric_name (str, optional): Name of the metric to retrieve. Defaults to "wallet".
 

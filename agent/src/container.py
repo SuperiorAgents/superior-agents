@@ -1,42 +1,45 @@
 import io
 import tarfile
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, Tuple, cast
 
 import docker
 import docker.errors
-
-from datetime import datetime
-from pathlib  import Path
-from typing   import Dict, Tuple, cast
-
-from docker                   import DockerClient
+from docker import DockerClient
 from docker.models.containers import Container
-from loguru                   import logger
-from result                   import Err, Ok, Result
+from loguru import logger
+from result import Err, Ok, Result
 
-from src.helper               import timeout
+from src.helper import timeout
 
 
 class ContainerManager:
-    """Manages Docker containers for executing code in isolated environments."""
-
+    """
+    Manages Docker containers for executing code in isolated environments.
+    
+    This class provides functionality to create, access, and interact with Docker containers.
+    It handles container creation if the specified container doesn't exist, and provides
+    methods to write and execute code within the container.
+    """
     def __init__(
         self,
         client: DockerClient,
         container_identifier: str,
         host_cache_folder: Path | str,
-        in_con_env: Dict[str, str],
+        in_con_env: Dict[str, str]
     ):
         """
         Initialize the ContainerManager with Docker client and container settings.
-
+        
         Args:
-                client (DockerClient): Docker client instance for container operations
-                container_identifier (str): Name or ID of the container to use
-                host_cache_folder (Path | str): Path to the folder on the host machine for caching files
-                in_con_env (Dict[str, str]): Environment variables to set in the container
-
+            client (DockerClient): Docker client instance for container operations
+            container_identifier (str): Name or ID of the container to use
+            host_cache_folder (Path | str): Path to the folder on the host machine for caching files
+            in_con_env (Dict[str, str]): Environment variables to set in the container
+            
         Raises:
-                ValueError: If the container cannot be found or created, or if the retrieved object is not a Container
+            ValueError: If the container cannot be found or created, or if the retrieved object is not a Container
         """
         self.client = client
         self.host_cache_folder = Path(host_cache_folder)
@@ -50,23 +53,21 @@ class ContainerManager:
                 c for c in all_containers if container_identifier in (c.name, c.id)
             ]
             if not matching_containers:
-                logger.info(
-                    f"Container not found: {container_identifier}, attempting to create it"
-                )
+                logger.info(f"Container not found: {container_identifier}, attempting to create it")
                 try:
                     _container = client.containers.create(
                         image="superioragents/agent-executor:latest",
                         name=container_identifier,
                         hostname=container_identifier,
-                        environment={"PYTHONUNBUFFERED": "1"},
+                        environment={
+                            "PYTHONUNBUFFERED": "1"
+                        },
                         network_mode="host",
                         detach=True,
-                        restart_policy={"Name": "unless-stopped"},  # type: ignore
+                        restart_policy={"Name": "unless-stopped"} # type: ignore
                     )
                     _container.start()
-                    logger.info(
-                        f"Successfully created and started container: {container_identifier}"
-                    )
+                    logger.info(f"Successfully created and started container: {container_identifier}")
                 except docker.errors.APIError as e:
                     logger.error(f"Failed to create container: {container_identifier}")
                     logger.error(f"Error: {e}")
@@ -84,25 +85,26 @@ class ContainerManager:
     def write_code_in_con(
         self, code: str, postfix: str, in_container_path: str = "/"
     ) -> Tuple[str, str]:
-        """
-        Write code into a temporary file in the host machine first then to the container.
+        """Write code into a temporary file in the host machine first then to the container.
+
+        Algorithm:
         - Write code into a temporary file in the host machine
         - Create a tar archive containing the file
         - Copy the tar archive to the container's root directory
         - Check if the file exists in the container
 
         Args:
-                code (str): The code to write into the container
-                postfix (str): The type identifier for the agent, used in the file path
-                in_container_path (str, optional): The base path in the container to write the code to. Defaults to "/".
-
+            code (str): The code to write into the container
+            postfix (str): The type identifier for the agent, used in the file path
+            in_container_path (str, optional): The base path in the container to write the code to. Defaults to "/".
+            
         Raises:
-                Exception: If the file cannot be written to the container or if verification fails
-
+            Exception: If the file cannot be written to the container or if verification fails
+            
         Returns:
-                Tuple[str, str]:
-                        - The path to the temporary file in the container
-                        - The reflected code (content of the file as read from the container)
+            Tuple[str, str]: 
+                - The path to the temporary file in the container
+                - The reflected code (content of the file as read from the container)
         """
         # Create temp file name with timestamp
         current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -152,9 +154,12 @@ class ContainerManager:
 
         return temp_file_path, reflected_code
 
-    def run_code_in_con(self, code: str, postfix: str) -> Result[Tuple[str, str], str]:
-        """
-        Run code in container and return the exit code, execution output, and reflected code.
+    def run_code_in_con(
+        self, code: str, postfix: str
+    ) -> Result[Tuple[str, str], str]:
+        """Run code in container and return the exit code, execution output, and reflected code.
+
+        Algorithm:
         - Write code into a temporary file in the host machine
         - Create a tar archive containing the file
         - Copy the tar archive to the container's root directory
@@ -163,17 +168,17 @@ class ContainerManager:
         - Return the exit code, execution output, and reflected code
 
         Args:
-                code (str): The Python code to run in the container
-                postfix (str): The type identifier for the agent, used in the file path
-
+            code (str): The Python code to run in the container
+            postfix (str): The type identifier for the agent, used in the file path
+            
         Returns:
-                Result[Tuple[str, str], str]:
-                        - Ok: A tuple containing (execution_output, reflected_code)
-                        - Err: An error message describing what went wrong
-
+            Result[Tuple[str, str], str]: 
+                - Ok: A tuple containing (execution_output, reflected_code)
+                - Err: An error message describing what went wrong
+                
         Note:
-                - The execution has a timeout of 150 seconds
-                - After execution, any remaining Python processes are killed
+            - The execution has a timeout of 150 seconds
+            - After execution, any remaining Python processes are killed
         """
         temp_file_path, reflected_code = self.write_code_in_con(code, postfix)
 
@@ -182,7 +187,7 @@ class ContainerManager:
         cmd = ["/bin/sh", "-c", command_str]  # Execute via shell
 
         try:
-            with timeout(seconds=150):
+            with timeout(seconds=600):
                 python_exit_code, python_output = cast(
                     Tuple[int, bytes],
                     self.container.exec_run(

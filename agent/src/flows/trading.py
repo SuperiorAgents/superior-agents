@@ -24,30 +24,32 @@ def assisted_flow(
 ):
     """
     Execute an assisted trading workflow with the trading agent.
-    - Orchestrates the complete trading workflow.
-    - Handles retries for failed steps and saves the results to the database.
+
+    This function orchestrates the complete trading workflow, including research,
+    strategy formulation, address research, and trading code execution. It handles
+    retries for failed steps and saves the results to the database.
 
     Args:
-            agent (TradingAgent): The trading agent to use
-            session_id (str): Identifier for the current session
-            role (str): Role of the agent (e.g., "trader")
-            network (str): Blockchain network to operate on
-            time (str): Time frame for the trading goal
-            apis (List[str]): List of APIs available to the agent
-            trading_instruments (List[str]): List of available trading instruments
-            metric_name (str): Name of the metric to track
-            prev_strat (StrategyData | None): Previous strategy, if any
-            notif_str (str | None): Notification string to process
-            txn_service_url (str): URL of the transaction service
-            summarizer (Callable[[List[str]], str]): Function to summarize text
+        agent (TradingAgent): The trading agent to use
+        session_id (str): Identifier for the current session
+        role (str): Role of the agent (e.g., "trader")
+        network (str): Blockchain network to operate on
+        time (str): Time frame for the trading goal
+        apis (List[str]): List of APIs available to the agent
+        trading_instruments (List[str]): List of available trading instruments
+        metric_name (str): Name of the metric to track
+        prev_strat (StrategyData | None): Previous strategy, if any
+        notif_str (str | None): Notification string to process
+        txn_service_url (str): URL of the transaction service
+        summarizer (Callable[[List[str]], str]): Function to summarize text
 
     Returns:
-            None: This function doesn't return a value but logs its progress
+        None: This function doesn't return a value but logs its progress
     """
     agent.reset()
     logger.info("Reset agent")
     logger.info("Starting on assisted trading flow")
-    # Store initial metric state to measure performance of trading strategy
+
     start_metric_state = str(agent.sensor.get_metric_fn(metric_name)())
 
     try:
@@ -64,7 +66,7 @@ def assisted_flow(
     except (AssertionError, Exception) as e:
         if isinstance(e, Exception):
             logger.warning(f"Error retrieving RAG strategy: {str(e)}")
-        # Set default values when RAG retrieval fails to ensure workflow continues
+
         rag_summary = "Unable to retrieve a relevant strategy from RAG handler..."
         rag_before_metric_state = (
             "Unable to retrieve a relevant strategy from RAG handler..."
@@ -90,7 +92,6 @@ def assisted_flow(
     err_acc = ""
     regen = False
     success = False
-    # Generate and execute market research code with retry mechanism
     for i in range(3):
         try:
             if regen:
@@ -100,7 +101,7 @@ def assisted_flow(
             else:
                 if not prev_strat:
                     research_code, new_ch = agent.gen_research_code_on_first(
-                        apis
+                        apis=apis, network=network
                     ).unwrap()
                 else:
                     research_code, new_ch = agent.gen_research_code(
@@ -113,9 +114,11 @@ def assisted_flow(
                     ).unwrap()
 
             logger.info(f"Response: {new_ch.get_latest_response()}")
-            agent.chat_history += new_ch
+            # Temporarily avoid new chat to reduce cost
+            # agent.chat_history += new_ch
             agent.db.insert_chat_history(session_id, new_ch)
 
+            logger.info("Running the resulting research code in conatiner...")
             code_execution_result = agent.container_manager.run_code_in_con(
                 research_code, "trader_research_code"
             )
@@ -144,7 +147,6 @@ def assisted_flow(
     err_acc = ""
     regen = False
     success = False
-    # Generate trading strategy based on research findings
     for i in range(3):
         try:
             if regen:
@@ -157,7 +159,8 @@ def assisted_flow(
             ).unwrap()
 
             logger.info(f"Response: {new_ch.get_latest_response()}")
-            agent.chat_history += new_ch
+            # Temporarily avoid new chat to reduce cost
+            # agent.chat_history += new_ch
             agent.db.insert_chat_history(session_id, new_ch)
 
             success = True
@@ -185,7 +188,6 @@ def assisted_flow(
     err_acc = ""
     regen = False
     success = False
-    # Research blockchain addresses - more retries (10) due to complexity
     for i in range(10):
         try:
             if regen:
@@ -199,9 +201,11 @@ def assisted_flow(
                 )
 
             logger.info(f"Response: {new_ch.get_latest_response()}")
-            agent.chat_history += new_ch
+            # Temporarily avoid new chat to reduce cost
+            # agent.chat_history += new_ch
             agent.db.insert_chat_history(session_id, new_ch)
 
+            logger.info("Running the resulting address research code in conatiner...")
             code_execution_result = agent.container_manager.run_code_in_con(
                 address_research_code, "trader_address_research"
             )
@@ -234,7 +238,6 @@ def assisted_flow(
     code_output = ""
     success = False
     regen = False
-    #  Generate and execute actual trading code based on strategy and research
     for i in range(3):
         try:
             if regen:
@@ -246,17 +249,19 @@ def assisted_flow(
                 trading_code, new_ch = agent.gen_trading_code(
                     strategy_output=strategy_output,
                     address_research=address_research_output,
-                    apis=apis,
                     trading_instruments=trading_instruments,
+                    metric_state=start_metric_state,
                     agent_id=agent.agent_id,
                     txn_service_url=txn_service_url,
                     session_id=session_id,
                 ).unwrap()
 
             logger.info(f"Response: {new_ch.get_latest_response()}")
-            agent.chat_history += new_ch
+            # Temporarily avoid new chat to reduce cost
+            # agent.chat_history += new_ch
             agent.db.insert_chat_history(session_id, new_ch)
 
+            logger.info("Running the resulting trading code in conatiner...")
             code_execution_result = agent.container_manager.run_code_in_con(
                 trading_code, "trader_trading_code"
             )
