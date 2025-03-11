@@ -25,9 +25,9 @@ setup_agent() {
 
 setup_api() {
 	echo "🚀 Setting up API/DB virtual environment..."
-	python3 -m venv api-db-venv
-	source api-db-venv/bin/activate
-	cd api_db
+	python3 -m venv rest-api-venv
+	source rest-api-venv/bin/activate
+	cd rest-api
 	pip install -r requirements.txt >/dev/null 2>&1
 	cp .env.example .env
 	python init_db.py
@@ -55,11 +55,11 @@ main() {
 	echo "Usage Instructions:"
 	echo "1. Edit environment files:"
 	echo "   - Agent: agent/.env"
-	echo "   - API:   api_db/.env"
+	echo "   - API:   rest-api/.env"
 	echo "2. Start Docker containers:"
 	echo "   cd agent/docker && docker compose up -d"
 	echo "3. Start API server:"
-	echo "   source api-db-venv/bin/activate && cd api_db && uvicorn routes.api:app --port 9020"
+	echo "   source rest-api-venv/bin/activate && cd rest-api && uvicorn routes.api:app --port 9020"
 	echo "4. Run agents in separate terminal:"
 	echo "   source agent-venv/bin/activate && python -m scripts.main [trading|marketing] [agent_id]"
 }
