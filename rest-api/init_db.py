@@ -8,11 +8,18 @@ SCHEMA = """
 
 CREATE TABLE sup_agent_sessions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  session_id TEXT,
+  session_id TEXT UNIQUE,
   agent_id TEXT NOT NULL,
-  status TEXT CHECK(status IN ('running', 'stopped')) NOT NULL DEFAULT 'running',
+  status TEXT CHECK(status IN ('running', 'stopped', 'stopping')) NOT NULL DEFAULT 'running',
   started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  ended_at TIMESTAMP
+  ended_at TIMESTAMP DEFAULT NULL,
+  fe_data TEXT,
+  trades_count INTEGER DEFAULT NULL,
+  cycle_count INTEGER DEFAULT NULL,
+  session_interval INTEGER DEFAULT 900,  -- seconds
+  will_end_at TIMESTAMP DEFAULT (datetime('now', '+12 hours')),
+  last_cycle TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  status_cycle TEXT CHECK(status_cycle IN ('running', 'finished')) DEFAULT 'finished'
 );
 
 CREATE INDEX idx_agent_started ON sup_agent_sessions (agent_id, started_at);
@@ -21,12 +28,14 @@ CREATE INDEX idx_agent_started ON sup_agent_sessions (agent_id, started_at);
 
 CREATE TABLE sup_agents (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  agent_id TEXT,
+  agent_id TEXT UNIQUE,
   user_id TEXT NOT NULL,
   name TEXT NOT NULL,
   configuration TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  wallet_address TEXT,
+  UNIQUE(agent_id)
 );
 
 CREATE INDEX idx_user_id ON sup_agents (user_id);
@@ -49,6 +58,7 @@ CREATE INDEX idx_session_time ON sup_chat_history (session_id, timestamp);
 CREATE TABLE sup_notifications (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   notification_id TEXT,
+  bot_username TEXT,
   relative_to_scraper_id TEXT,
   source TEXT,
   short_desc TEXT,
