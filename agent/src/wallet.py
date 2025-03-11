@@ -12,7 +12,6 @@ from dataclasses import dataclass
 class SuperAgentResponse:
     """
     Data class representing a response from the SuperAgent service.
-
     
     This class encapsulates the address returned by the SuperAgent service
     and any potential error that occurred during the request.
