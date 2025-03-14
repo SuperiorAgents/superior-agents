@@ -192,14 +192,6 @@ def setup_marketing_agent_flow(
     in_con_env = services_to_envs(services_used)
     apis = services_to_prompts(services_used)
     db = APIDB(base_url=DB_SERVICE_URL, api_key=DB_SERVICE_API_KEY)
-    
-    in_con_env.update({
-        "TWITTER_API_KEY": TWITTER_API_KEY,
-        "TWITTER_API_KEY_SECRET": TWITTER_API_KEY_SECRET,
-        "TWITTER_ACCESS_TOKEN": TWITTER_ACCESS_TOKEN,
-        "TWITTER_ACCESS_TOKEN_SECRET": TWITTER_ACCESS_TOKEN_SECRET,
-        "TWITTER_BEARER_TOKEN": TWITTER_BEARER_TOKEN,
-    })
 
     container_manager = ContainerManager(
         docker.from_env(),
