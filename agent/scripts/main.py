@@ -37,18 +37,18 @@ load_dotenv()
 
 # Research tools
 TWITTER_API_KEY = os.getenv("TWITTER_API_KEY") or ""
-TWITTER_API_SECRET = os.getenv("TWITTER_API_KEY_SECRET") or ""
+TWITTER_API_KEY_SECRET = os.getenv("TWITTER_API_KEY_SECRET") or ""
 TWITTER_BEARER_TOKEN = os.getenv("TWITTER_BEARER_TOKEN") or ""
 TWITTER_ACCESS_TOKEN = os.getenv("TWITTER_ACCESS_TOKEN") or ""
 TWITTER_ACCESS_TOKEN_SECRET = os.getenv("TWITTER_ACCESS_TOKEN_SECRET") or ""
 
-RESEARCH_TWITTER_API_KEY = os.getenv("RESEARCH_TWITTER_API_KEY") or ""
-RESEARCH_TWITTER_API_SECRET = os.getenv("RESEARCH_TWITTER_API_KEY_SECRET") or ""
-RESEARCH_TWITTER_BEARER_TOKEN = os.getenv("RESEARCH_TWITTER_BEARER_TOKEN") or ""
-RESEARCH_TWITTER_ACCESS_TOKEN = os.getenv("RESEARCH_TWITTER_ACCESS_TOKEN") or ""
-RESEARCH_TWITTER_ACCESS_TOKEN_SECRET = (
-    os.getenv("RESEARCH_TWITTER_ACCESS_TOKEN_SECRET") or ""
-)
+# RESEARCH_TWITTER_API_KEY = os.getenv("RESEARCH_TWITTER_API_KEY") or ""
+# RESEARCH_TWITTER_API_KEY_SECRET = os.getenv("RESEARCH_TWITTER_API_KEY_SECRET") or ""
+# RESEARCH_TWITTER_BEARER_TOKEN = os.getenv("RESEARCH_TWITTER_BEARER_TOKEN") or ""
+# RESEARCH_TWITTER_ACCESS_TOKEN = os.getenv("RESEARCH_TWITTER_ACCESS_TOKEN") or ""
+# RESEARCH_TWITTER_ACCESS_TOKEN_SECRET = (
+#     os.getenv("RESEARCH_TWITTER_ACCESS_TOKEN_SECRET") or ""
+# )
 
 
 COINGECKO_API_KEY = os.getenv("COINGECKO_API_KEY") or ""
@@ -185,27 +185,35 @@ def setup_marketing_agent_flow(
     metric_name = fe_data["metric_name"]
     notif_sources = fe_data["notifications"]
     services_used = fe_data["research_tools"]
-    twitter_access_token = fe_data["twitter_access_token"]
+    # twitter_access_token = fe_data["twitter_access_token"]
 
-    os.environ["POSTING_TWITTER_ACCESS_TOKEN"] = twitter_access_token
+    # os.environ["POSTING_TWITTER_ACCESS_TOKEN"] = twitter_access_token
 
     in_con_env = services_to_envs(services_used)
     apis = services_to_prompts(services_used)
     db = APIDB(base_url=DB_SERVICE_URL, api_key=DB_SERVICE_API_KEY)
 
+    container_manager = ContainerManager(
+        docker.from_env(),
+        "agent-executor",
+        "./code",
+        in_con_env=in_con_env
+    )
+    
     auth = tweepy.OAuth1UserHandler(
         consumer_key=TWITTER_API_KEY,
-        consumer_secret=TWITTER_API_SECRET,
+        consumer_secret=TWITTER_API_KEY_SECRET,
+        access_token=TWITTER_ACCESS_TOKEN, 
+        access_token_secret=TWITTER_ACCESS_TOKEN_SECRET
     )
-    auth.set_access_token(TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_TOKEN_SECRET)
 
     twitter_client = TweepyTwitterClient(
         client=tweepy.Client(
-            bearer_token=TWITTER_BEARER_TOKEN,
             consumer_key=TWITTER_API_KEY,
-            consumer_secret=TWITTER_API_SECRET,
+            consumer_secret=TWITTER_API_KEY_SECRET,
             access_token=TWITTER_ACCESS_TOKEN,
             access_token_secret=TWITTER_ACCESS_TOKEN_SECRET,
+            wait_on_rate_limit=True  # Add rate limit handling
         ),
         api_client=tweepy.API(auth),
     )
@@ -222,12 +230,6 @@ def setup_marketing_agent_flow(
         stream_fn=lambda token: print(token, end="", flush=True),
     )
 
-    container_manager = ContainerManager(
-        docker.from_env(),
-        "agent-executor",
-        "./code",
-        in_con_env=in_con_env,
-    )
     prompt_generator = MarketingPromptGenerator(fe_data["prompts"])
 
     previous_strategies = db.fetch_all_strategies(agent_id)

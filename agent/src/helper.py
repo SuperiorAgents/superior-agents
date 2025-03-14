@@ -91,21 +91,10 @@ def services_to_prompts(services: List[str]) -> List[str]:
 
     Example:
         >>> services_to_prompts(["Twitter", "CoinGecko"])
-        ['Twitter (using tweepy, env vars POSTING_TWITTER_API_KEY, ...)', 'CoinGecko (env vars COINGECKO_API_KEY) ...']
+        ['Twitter (using tweepy, env vars TWITTER_API_KEY, ...)', 'CoinGecko (env vars COINGECKO_API_KEY) ...']
     """
     service_to_prompt = {
-        "Twitter": dedent("""
-            Research Twitter (ONLY FOR RESEARCH, Using Tweepy, env vars RESEARCH_TWITTER_API_KEY, RESEARCH_TWITTER_API_KEY_SECRET, RESEARCH_TWITTER_BEARER_TOKEN)"
-            Posting Twitter (ONLY FOR POSTING ON TWITTER) (POSTING_TWITTER_ACCESS_TOKEN) (
-                curl --request POST \
-                    --url https://api.x.com/2/tweets \
-                    --header 'Authorization: Bearer <access_token>' \
-                    --header 'Content-Type: application/json' \
-                    --data '{
-                        "text": "Learn how to use the user Tweet timeline and user mention timeline endpoints in the X API v2 to explore Tweet https://t.co/56a0vZUx7i"
-                    }'
-            )
-        """),
+		"Twitter": "Twitter (env vars TWITTER_API_KEY, TWITTER_API_KEY_SECRET, TWITTER_BEARER_TOKEN, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_TOKEN_SECRET)",
         # "CoinMarketCap": "CoinMarketCap (env vars ??)",
         "CoinGecko": dedent("""
             <CoinGeckoTrendingCoins>
@@ -272,14 +261,16 @@ def services_to_envs(platforms: List[str]) -> Dict[str, str]:
 
     Example:
         >>> services_to_envs(["Twitter", "CoinGecko"])
-        {'POSTING_TWITTER_API_KEY': 'key_value', 'POSTING_TWITTER_API_KEY_SECRET': 'secret_value', ...}
+        {'TWITTER_API_KEY': 'key_value', 'TWITTER_API_KEY_SECRET': 'secret_value', ...}
     """
     env_var_mapping: Dict[str, List[str]] = {
         "Twitter": [
-            "RESEARCH_TWITTER_API_KEY",
-            "RESEARCH_TWITTER_API_KEY_SECRET",
-            "RESEARCH_TWITTER_BEARER_TOKEN",
-            "POSTING_TWITTER_ACCESS_TOKEN",
+            "TWITTER_API_KEY",
+            "TWITTER_API_KEY_SECRET",
+            "TWITTER_ACCESS_TOKEN",
+            "TWITTER_ACCESS_TOKEN_SECRET",
+            "TWITTER_BEARER_TOKEN",
+
         ],
         "CoinGecko": [
             "COINGECKO_API_KEY",
