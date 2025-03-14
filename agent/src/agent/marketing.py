@@ -206,19 +206,43 @@ class MarketingPromptGenerator:
     def _get_default_apis_str() -> str:
         """Get default list of available APIs"""
         default_apis = [
-        dedent("""
-        Research Twitter (ONLY FOR RESEARCH, Using Tweepy, env vars RESEARCH_TWITTER_API_KEY, RESEARCH_TWITTER_API_KEY_SECRET, RESEARCH_TWITTER_BEARER_TOKEN)
-            Posting Twitter (ONLY FOR POSTING ON TWITTER) (env vars POSTING_TWITTER_ACCESS_TOKEN) (
-            curl --request POST \
-                --url https://api.x.com/2/tweets \
-                --header 'Authorization: Bearer <access_token>' \
-                --header 'Content-Type: application/json' \
-                --data '{
-                "text": "Learn how to use the user Tweet timeline and user mention timeline endpoints in the X API v2 to explore Tweet https://t.co/56a0vZUx7i"
-                }'
-            )
-        """),
-        "DuckDuckGo (using the command line `ddgr`)",
+            dedent("""
+            Twitter API v1.1:
+            Required env vars:
+            - TWITTER_API_KEY
+            - TWITTER_API_KEY_SECRET
+            - TWITTER_ACCESS_TOKEN
+            - TWITTER_ACCESS_TOKEN_SECRET
+            
+            Example Usage:
+            import tweepy
+            import os
+            from dotenv import load_dotenv
+
+            def main():
+                load_dotenv()
+                
+                # Initialize Twitter API v1.1 (not v2)
+                auth = tweepy.OAuth1UserHandler(
+                    os.getenv("TWITTER_API_KEY"),
+                    os.getenv("TWITTER_API_KEY_SECRET"),
+                    os.getenv("TWITTER_ACCESS_TOKEN"),
+                    os.getenv("TWITTER_ACCESS_TOKEN_SECRET")
+                )
+                api = tweepy.API(auth)
+                
+                try:
+                    # Post tweet using v1.1 endpoint
+                    tweet_text = "Learn how to use the user Tweet timeline and user mention timeline endpoints in the X API v2 to explore Tweet https://t.co/56a0vZUx7i"
+                    tweet = api.update_status(tweet_text)
+                    print(f"Posted to Twitter: {tweet.text}")
+                except Exception as e:
+                    print(f"Error posting to Twitter: {str(e)}")
+                    raise
+
+            if __name__ == "__main__":
+                main()
+            """).strip()
         ]
         return ",\n".join(default_apis)
 

@@ -487,7 +487,7 @@ class TradingPromptGenerator:
         """
         default_apis = [
             "Coingecko (env variables COINGECKO_API_KEY)",
-            "Twitter (env variables TWITTER_API_KEY, TWITTER_API_SECRET)",
+            "Twitter (env variables TWITTER_API_KEY, TWITTER_API_KEY_SECRET)",
             "DuckDuckGo (using the command line `ddgr`)",
         ]
         return ",\n".join(default_apis)
