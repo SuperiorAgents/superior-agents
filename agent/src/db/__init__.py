@@ -523,3 +523,36 @@ class APIDB:
             Dict[str, Any],
         )
         return response.success
+    
+    def insert_wallet_snapshot(
+        self,
+        snapshot_id: str,
+        agent_id: str,
+        total_value_usd: float,
+        assets: str,
+    ) -> bool:
+        """Given a snapshot_id, agent_id, total_value_usd, assets, and snapshot_time, insert a wallet snapshot.
+
+        Args:
+            snapshot_id (str): User generated snapshot ID
+            agent_id (str): The ID of the agent
+            total_value_usd (float): Total value of the wallet in USD
+            assets (str): JSON string of assets in the wallet
+            snapshot_time (str): Timestamp when the snapshot was taken
+
+        Returns:
+            bool: If the wallet snapshot was inserted successfully
+        """
+
+        response = self._make_request(
+            "wallet_snapshots/create",
+            {
+                "snapshot_id": snapshot_id,
+                "agent_id": agent_id,
+                "total_value_usd": total_value_usd,
+                "assets": assets,
+            },
+            Dict[str, Any],
+        )
+
+        return response.success
