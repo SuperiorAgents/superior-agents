@@ -292,14 +292,14 @@ if __name__ == "__main__":
     manager_client = ManagerClient(MANAGER_SERVICE_URL, session_id)
 
     session = db.get_agent_session(session_id, agent_id)
-    session_interval = session.get("data", {}).get("session_interval", 15)
+    session_interval = session.get("data", {}).get("session_interval", 15) # type: ignore
     if session is not None:
         db.update_agent_session(session_id, agent_id, "running")
     else:
         db.create_agent_session(
             session_id=session_id,
             agent_id=agent_id,
-            started_at=datetime.datetime.now().isoformat(),
+            started_at=datetime.now().isoformat(),
             status="running",
         )
 
