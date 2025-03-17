@@ -3,7 +3,8 @@ from eth_typing import Address
 from web3 import Web3
 import requests
 from typing import Dict, Any
-from datetime import datetime, time
+from datetime import datetime
+import time
 
 
 class PriceProvider:
