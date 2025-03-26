@@ -104,17 +104,35 @@ DEFAULT_HEADERS = {"x-api-key": DB_SERVICE_API_KEY, "Content-Type": "application
 def setup_trading_agent_flow(
     fe_data: dict, session_id: str, agent_id: str, assisted=True
 ) -> Tuple[TradingAgent, List[str], Callable[[StrategyData | None, str | None], None]]:
+    """
+    Initializes and configures a TradingAgent with all
+    necessary dependencies for executing trading strategies.
+
+    Args:
+        fe_data   (dict): Frontend config data
+        session_id (str): Unique id for the trading session
+        agent_id   (str): Unique id for the trading agent
+        assisted  (bool): Flag to enable assisted trading mode (default: True)
+    
+    Returns:
+        Tuple:
+        - TradingAgent instance config
+        - List of notification sources for strategy alerts
+        - Flow function to execute the trading strategy lifecycle
+    """
+
+    time_               = fe_data["time"]
     role                = fe_data["role"]
     network             = fe_data["network"]
-    services_used       = fe_data["research_tools"]
-    trading_instruments = fe_data["trading_instruments"]
     metric_name         = fe_data["metric_name"]
+    services_used       = fe_data["research_tools"]
     notif_sources       = fe_data["notifications"]
-    time_               = fe_data["time"]
+    trading_instruments = fe_data["trading_instruments"]
 
     in_con_env          = services_to_envs(services_used)
     apis                = services_to_prompts(services_used)
     db                  = APIDB(base_url=DB_SERVICE_URL, api_key=DB_SERVICE_API_KEY)
+
     if fe_data["model"] == "deepseek":
         fe_data["model"] = "deepseek_or"
 
@@ -179,9 +197,22 @@ def setup_trading_agent_flow(
 
 def setup_marketing_agent_flow(
     fe_data: dict, session_id: str, agent_id: str
-) -> Tuple[
-    MarketingAgent, List[str], Callable[[StrategyData | None, str | None], None]
-]:
+) -> Tuple[MarketingAgent, List[str], Callable[[StrategyData | None, str | None], None]]:
+    """
+    Initializes and configures a MarketingAgent with all
+    necessary dependencies for executing trading strategies.
+
+    Args:
+        fe_data   (dict): Frontend config data
+        session_id (str): Unique id for the marketing session
+        agent_id   (str): Unique id for the marketing agent
+    
+    Returns:
+        Tuple:
+        - MarketingAgent instance config
+        - List of notification sources for strategy alerts
+        - Flow function to execute the trading strategy lifecycle
+    """
     role          = fe_data["role"]
     time_         = fe_data["time"]
     metric_name   = fe_data["metric_name"]
