@@ -142,6 +142,7 @@ def setup_trading_agent_flow(
     rag = RAGClient(
         session_id=session_id,
         agent_id=agent_id,
+        base_url=RAG_SERVICE_URL,
     )
     rag.save_result_batch(previous_strategies)
 
@@ -237,6 +238,7 @@ def setup_marketing_agent_flow(
     rag = RAGClient(
         session_id=session_id,
         agent_id=agent_id,
+        base_url=RAG_SERVICE_URL,
     )
     rag.save_result_batch(previous_strategies)
 
@@ -272,7 +274,9 @@ def setup_marketing_agent_flow(
 if __name__ == "__main__":
     if len(sys.argv) < 3:
         print("Usage: python main.py [trading|marketing] [session_id] [agent_id]")
-        exit(1)
+        agent_type = "trading"
+        session_id = "agent_007"
+        agent_id = "agent_007"
     else:
         agent_type = sys.argv[1]
         session_id = sys.argv[2]
@@ -288,14 +292,14 @@ if __name__ == "__main__":
     manager_client = ManagerClient(MANAGER_SERVICE_URL, session_id)
 
     session = db.get_agent_session(session_id, agent_id)
-    session_interval = session.get("data", {}).get("session_interval", 15)
+    session_interval = session.get("data", {}).get("session_interval", 15) # type: ignore
     if session is not None:
         db.update_agent_session(session_id, agent_id, "running")
     else:
         db.create_agent_session(
             session_id=session_id,
             agent_id=agent_id,
-            started_at=datetime.datetime.now().isoformat(),
+            started_at=datetime.now().isoformat(),
             status="running",
         )
 
