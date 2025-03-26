@@ -51,19 +51,19 @@ class EnvConfig:
     @property
     def twitter_config(self):
         return {
-            "api_key": os.getenv("TWITTER_API_KEY", ""),
-            "api_secret": os.getenv("TWITTER_API_KEY_SECRET", ""),
-            "bearer_token": os.getenv("TWITTER_BEARER_TOKEN", ""),
-            "access_token": os.getenv("TWITTER_ACCESS_TOKEN", ""),
+            "api_key":       os.getenv("TWITTER_API_KEY", ""),
+            "api_secret":    os.getenv("TWITTER_API_KEY_SECRET", ""),
+            "bearer_token":  os.getenv("TWITTER_BEARER_TOKEN", ""),
+            "access_token":  os.getenv("TWITTER_ACCESS_TOKEN", ""),
             "access_secret": os.getenv("TWITTER_ACCESS_TOKEN_SECRET", "")
         }
     
     @property
     def crypto_config(self):
         return {
-            "coingecko": os.getenv("COINGECKO_API_KEY", ""),
-            "etherscan": os.getenv("ETHERSCAN_API_KEY", ""),
-            "infura": os.getenv("INFURA_PROJECT_ID", ""),
+            "coingecko":   os.getenv("COINGECKO_API_KEY", ""),
+            "etherscan":   os.getenv("ETHERSCAN_API_KEY", ""),
+            "infura":      os.getenv("INFURA_PROJECT_ID", ""),
             "eth_address": os.getenv("ETHER_ADDRESS", "")
         }
     
@@ -71,31 +71,31 @@ class EnvConfig:
     def llm_config(self):
         return {
             "deepseek_openrouter": os.getenv("DEEPSEEK_OPENROUTER_API_KEY", ""),
-            "deepseek_api": os.getenv("DEEPSEEK_DEEPSEEK_API_KEY", ""),
-            "anthropic": os.getenv("ANTHROPIC_API_KEY", ""),
-            "openai": os.getenv("OAI_API_KEY", "")
+            "deepseek_api":        os.getenv("DEEPSEEK_DEEPSEEK_API_KEY", ""),
+            "anthropic":           os.getenv("ANTHROPIC_API_KEY", ""),
+            "openai":              os.getenv("OAI_API_KEY", "")
         }
     
     @property
     def service_config(self):
         return {
-            "manager_url": os.getenv("MANAGER_SERVICE_URL", ""),
-            "db_url": os.getenv("DB_SERVICE_URL", ""),
+            "manager_url":    os.getenv("MANAGER_SERVICE_URL", ""),
+            "db_url":         os.getenv("DB_SERVICE_URL", ""),
             "deepseek_local": os.getenv("DEEPSEEK_LOCAL_SERVICE_URL", ""),
-            "vault_url": os.getenv("VAULT_SERVICE_URL", ""),
-            "txn_url": os.getenv("TXN_SERVICE_URL", ""),
-            "rag_url": os.getenv("RAG_SERVICE_URL", "")
+            "vault_url":      os.getenv("VAULT_SERVICE_URL", ""),
+            "txn_url":        os.getenv("TXN_SERVICE_URL", ""),
+            "rag_url":        os.getenv("RAG_SERVICE_URL", "")
         }
     
     @property
     def service_keys(self):
         return {
-            "manager": os.getenv("MANAGER_SERVICE_API_KEY", ""),
-            "db": os.getenv("DB_SERVICE_API_KEY", ""),
+            "manager":        os.getenv("MANAGER_SERVICE_API_KEY", ""),
+            "db":             os.getenv("DB_SERVICE_API_KEY", ""),
             "deepseek_local": os.getenv("DEEPSEEK_LOCAL_API_KEY", ""),
-            "vault": os.getenv("VAULT_API_KEY", ""),
-            "txn": os.getenv("TXN_SERVICE_API_KEY", ""),
-            "rag": os.getenv("RAG_SERVICE_API_KEY", "")
+            "vault":          os.getenv("VAULT_API_KEY", ""),
+            "txn":            os.getenv("TXN_SERVICE_API_KEY", ""),
+            "rag":            os.getenv("RAG_SERVICE_API_KEY", "")
         }
 
 # ================
@@ -105,23 +105,23 @@ env = EnvConfig()
 
 # LLM Clients
 deepseek_or_client = OpenRouter(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=env.llm_config["deepseek_openrouter"],
-    include_reasoning=True,
+    base_url          = "https://openrouter.ai/api/v1",
+    api_key           = env.llm_config["deepseek_openrouter"],
+    include_reasoning = True,
 )
 
 deepseek_local_client = OpenAI(
-    base_url=env.service_config["deepseek_local"],
-    api_key=env.service_keys["deepseek_local"]
+    base_url = env.service_config["deepseek_local"],
+    api_key  = env.service_keys["deepseek_local"]
 )
 
 deepseek_deepseek_client = OpenAI(
-    base_url="https://api.deepseek.com",
-    api_key=env.llm_config["deepseek_api"]
+    base_url = "https://api.deepseek.com",
+    api_key  = env.llm_config["deepseek_api"]
 )
 
-anthropic_client = Anthropic(api_key=env.llm_config["anthropic"])
-oai_client = OpenAI(api_key=env.llm_config["openai"])
+anthropic_client  = Anthropic(api_key=env.llm_config["anthropic"])
+oai_client        = OpenAI(api_key=env.llm_config["openai"])
 summarizer_genner = get_genner("deepseek_v3_or", stream_fn=lambda x: None, or_client=deepseek_or_client)
 
 # ================
@@ -130,7 +130,7 @@ summarizer_genner = get_genner("deepseek_v3_or", stream_fn=lambda x: None, or_cl
 class AgentFlowFactory:
     def __init__(self, agent_type: str):
         self.agent_type = agent_type
-        self.db = APIDB(base_url=env.service_config["db_url"], api_key=env.service_keys["db"])
+        self.db         = APIDB(base_url=env.service_config["db_url"], api_key=env.service_keys["db"])
         self.summarizer = get_summarizer(summarizer_genner)
         
     def create_agent_flow(self, fe_data: dict, session_id: str, agent_id: str) -> tuple:
@@ -140,20 +140,20 @@ class AgentFlowFactory:
         rag.save_result_batch(common["prev_strategies"])
         
         agent = agent_class(
-            agent_id=agent_id,
-            sensor=sensor,
-            genner=common["genner"],
-            container_manager=common["container_mgr"],
-            prompt_generator=prompt_gen,
-            db=self.db,
-            rag=rag,
+            agent_id          = agent_id,
+            sensor            = sensor,
+            genner            = common["genner"],
+            container_manager = common["container_mgr"],
+            prompt_generator  = prompt_gen,
+            db                = self.db,
+            rag               = rag,
         )
         
         flow_func = self._build_flow_function(
-            agent=agent,
-            fe_data=fe_data,
-            session_id=session_id,
-            common=common
+            agent      = agent,
+            fe_data    = fe_data,
+            session_id = session_id,
+            common     = common
         )
         
         return agent, fe_data["notifications"], flow_func
@@ -166,28 +166,28 @@ class AgentFlowFactory:
                 docker.from_env(),
                 "agent-executor",
                 "./code",
-                in_con_env=services_to_envs(services)
+                in_con_env = services_to_envs(services)
             ),
-            "genner": self._create_genner(fe_data),
+            "genner":          self._create_genner(fe_data),
             "prev_strategies": self.db.fetch_all_strategies(agent_id),
-            "apis": services_to_prompts(services)
+            "apis":            services_to_prompts(services)
         }
 
     def _create_genner(self, fe_data):
         model_map = {
-            "deepseek": "deepseek_or",
+            "deepseek":  "deepseek_or",
             "anthropic": "anthropic",
-            "openai": "openai"
+            "openai":    "openai"
         }
         model = model_map.get(fe_data["model"], fe_data["model"])
         
         return get_genner(
             model,
-            deepseek_deepseek_client=deepseek_deepseek_client,
-            or_client=deepseek_or_client,
-            deepseek_local_client=deepseek_local_client,
-            anthropic_client=anthropic_client,
-            stream_fn=lambda token: print(token, end="", flush=True),
+            deepseek_deepseek_client = deepseek_deepseek_client,
+            or_client                = deepseek_or_client,
+            deepseek_local_client    = deepseek_local_client,
+            anthropic_client         = anthropic_client,
+            stream_fn                = lambda token: print(token, end="", flush=True),
         )
 
     def _get_agent_components(self, fe_data):
@@ -195,9 +195,9 @@ class AgentFlowFactory:
             return (
                 TradingAgent,
                 TradingSensor(
-                    eth_address=env.crypto_config["eth_address"],
-                    infura_project_id=env.crypto_config["infura"],
-                    etherscan_api_key=env.crypto_config["etherscan"]
+                    eth_address       = env.crypto_config["eth_address"],
+                    infura_project_id = env.crypto_config["infura"],
+                    etherscan_api_key = env.crypto_config["etherscan"]
                 ),
                 TradingPromptGenerator(fe_data["prompts"])
             )
@@ -209,25 +209,25 @@ class AgentFlowFactory:
                 MarketingPromptGenerator(fe_data["prompts"])
             )
             
-        raise ValueError(f"未知代理类型: {self.agent_type}")
+        raise ValueError(f"Unknown agent type: {self.agent_type}")
 
     def _create_marketing_sensor(self):
         """Creating Marketing Sensors"""
         auth = tweepy.OAuth1UserHandler(
-            consumer_key=env.twitter_config["api_key"],
-            consumer_secret=env.twitter_config["api_secret"],
-            access_token=env.twitter_config["access_token"], 
-            access_token_secret=env.twitter_config["access_secret"]
+            consumer_key        = env.twitter_config["api_key"],
+            consumer_secret     = env.twitter_config["api_secret"],
+            access_token        = env.twitter_config["access_token"], 
+            access_token_secret = env.twitter_config["access_secret"]
         )
         
         return MarketingSensor(
-            twitter_client=TweepyTwitterClient(
-                client=tweepy.Client(
-                    consumer_key=env.twitter_config["api_key"],
-                    consumer_secret=env.twitter_config["api_secret"],
-                    access_token=env.twitter_config["access_token"],
-                    access_token_secret=env.twitter_config["access_secret"],
-                    wait_on_rate_limit=True
+            twitter_client = TweepyTwitterClient(
+                client = tweepy.Client(
+                    consumer_key        = env.twitter_config["api_key"],
+                    consumer_secret     = env.twitter_config["api_secret"],
+                    access_token        = env.twitter_config["access_token"],
+                    access_token_secret = env.twitter_config["access_secret"],
+                    wait_on_rate_limit  = True
                 ),
                 api_client=tweepy.API(auth)
             ),
@@ -237,13 +237,13 @@ class AgentFlowFactory:
     def _build_flow_function(self, agent, fe_data, session_id, common):
         """Build Process Function"""
         base_params = {
-            "agent": agent,
-            "session_id": session_id,
-            "role": fe_data["role"],
-            "time": fe_data["time"],
-            "apis": common["apis"],
+            "agent":       agent,
+            "session_id":  session_id,
+            "role":        fe_data["role"],
+            "time":        fe_data["time"],
+            "apis":        common["apis"],
             "metric_name": fe_data["metric_name"],
-            "summarizer": self.summarizer
+            "summarizer":  self.summarizer
         }
         
         if self.agent_type == "trading":
