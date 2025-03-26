@@ -100,6 +100,15 @@ docker --version
 docker-compose --version
 ```
 
+## Bootstrapper
+
+On Windows (under WSL) or on Mac/Linux, the fastest way to get started is to use the `bootstrap.sh` script
+
+```
+chmod +x bootstrap.sh
+./bootstrap.sh
+```
+
 ## Agent-side
 
 ```bash
