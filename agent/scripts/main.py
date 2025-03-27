@@ -9,20 +9,20 @@ import os
 import sys
 import time
 
-from datetime  import datetime
-from functools import partial
-from typing    import Callable, List, Tuple
+from datetime              import datetime
+from functools             import partial
+from typing                import Callable, List, Tuple
 
 # Third-Party
 import docker
 import requests
 import tweepy
 
-from anthropic         import Anthropic
-from dotenv            import load_dotenv
-from duckduckgo_search import DDGS
-from loguru            import logger
-from openai            import OpenAI
+from anthropic             import Anthropic
+from dotenv                import load_dotenv
+from duckduckgo_search     import DDGS
+from loguru                import logger
+from openai                import OpenAI
 
 # Local Modules
 from src.agent.marketing   import MarketingAgent, MarketingPromptGenerator
@@ -81,16 +81,16 @@ TXN_SERVICE_API_KEY         = os.getenv("TXN_SERVICE_API_KEY") or ""
 RAG_SERVICE_API_KEY         = os.getenv("RAG_SERVICE_API_KEY") or ""
 
 # Clients Setup
-deepseek_or_client = OpenRouter(
-    base_url          = "https://openrouter.ai/api/v1",
-    api_key           = DEEPSEEK_OPENROUTER_API_KEY,
-    include_reasoning = True,
+deepseek_or_client       = OpenRouter(
+    base_url             = "https://openrouter.ai/api/v1",
+    api_key              = DEEPSEEK_OPENROUTER_API_KEY,
+    include_reasoning    = True,
 )
-deepseek_local_client = OpenAI(
-    base_url = DEEPSEEK_LOCAL_SERVICE_URL, api_key=DEEPSEEK_LOCAL_API_KEY
+deepseek_local_client    = OpenAI(
+    base_url             = DEEPSEEK_LOCAL_SERVICE_URL, api_key=DEEPSEEK_LOCAL_API_KEY
 )
 deepseek_deepseek_client = OpenAI(
-    base_url = "https://api.deepseek.com", api_key=DEEPSEEK_DEEPSEEK_API_KEY
+    base_url             = "https://api.deepseek.com", api_key=DEEPSEEK_DEEPSEEK_API_KEY
 )
 
 anthropic_client = Anthropic(api_key = ANTHROPIC_API_KEY)
@@ -121,19 +121,19 @@ def setup_trading_agent_flow(
         - Flow function to execute the trading strategy lifecycle
     """
 
-    time_               = fe_data["time"]
-    role                = fe_data["role"]
-    network             = fe_data["network"]
-    metric_name         = fe_data["metric_name"]
-    services_used       = fe_data["research_tools"]
-    notif_sources       = fe_data["notifications"]
-    trading_instruments = fe_data["trading_instruments"]
+    time_                = fe_data["time"]
+    role                 = fe_data["role"]
+    network              = fe_data["network"]
+    metric_name          = fe_data["metric_name"]
+    services_used        = fe_data["research_tools"]
+    notif_sources        = fe_data["notifications"]
+    trading_instruments  = fe_data["trading_instruments"]
 
-    in_con_env          = services_to_envs(services_used)
-    apis                = services_to_prompts(services_used)
-    db                  = APIDB(base_url=DB_SERVICE_URL, api_key=DB_SERVICE_API_KEY)
+    in_con_env           = services_to_envs(services_used)
+    apis                 = services_to_prompts(services_used)
+    db                   = APIDB(base_url=DB_SERVICE_URL, api_key=DB_SERVICE_API_KEY)
 
-    if fe_data["model"] == "deepseek":
+    if fe_data["model"]  == "deepseek":
         fe_data["model"] = "deepseek_or"
 
     genner = get_genner(
@@ -219,9 +219,9 @@ def setup_marketing_agent_flow(
     notif_sources = fe_data["notifications"]
     services_used = fe_data["research_tools"]
 
-    in_con_env = services_to_envs(services_used)
-    apis       = services_to_prompts(services_used)
-    db         = APIDB(base_url=DB_SERVICE_URL, api_key=DB_SERVICE_API_KEY)
+    in_con_env    = services_to_envs(services_used)
+    apis          = services_to_prompts(services_used)
+    db            = APIDB(base_url=DB_SERVICE_URL, api_key=DB_SERVICE_API_KEY)
 
     container_manager = ContainerManager(
         docker.from_env(),
