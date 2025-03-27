@@ -9,20 +9,20 @@ import os
 import sys
 import time
 
-from datetime  import datetime
-from functools import partial
-from typing    import Callable, List, Tuple
+from datetime              import datetime
+from functools             import partial
+from typing                import Callable, List, Tuple
 
 # Third-Party
 import docker
 import requests
 import tweepy
 
-from anthropic         import Anthropic
-from dotenv            import load_dotenv
-from duckduckgo_search import DDGS
-from loguru            import logger
-from openai            import OpenAI
+from anthropic             import Anthropic
+from dotenv                import load_dotenv
+from duckduckgo_search     import DDGS
+from loguru                import logger
+from openai                import OpenAI
 
 # Local Modules
 from src.agent.marketing   import MarketingAgent, MarketingPromptGenerator
@@ -51,51 +51,51 @@ class EnvConfig:
     @property
     def twitter_config(self):
         return {
-            "api_key":       os.getenv("TWITTER_API_KEY", ""),
-            "api_secret":    os.getenv("TWITTER_API_KEY_SECRET", ""),
-            "bearer_token":  os.getenv("TWITTER_BEARER_TOKEN", ""),
-            "access_token":  os.getenv("TWITTER_ACCESS_TOKEN", ""),
-            "access_secret": os.getenv("TWITTER_ACCESS_TOKEN_SECRET", "")
+            "api_key"             : os.getenv("TWITTER_API_KEY", ""),
+            "api_secret"          : os.getenv("TWITTER_API_KEY_SECRET", ""),
+            "bearer_token"        : os.getenv("TWITTER_BEARER_TOKEN", ""),
+            "access_token"        : os.getenv("TWITTER_ACCESS_TOKEN", ""),
+            "access_secret"       : os.getenv("TWITTER_ACCESS_TOKEN_SECRET", "")
         }
     
     @property
     def crypto_config(self):
         return {
-            "coingecko":   os.getenv("COINGECKO_API_KEY", ""),
-            "etherscan":   os.getenv("ETHERSCAN_API_KEY", ""),
-            "infura":      os.getenv("INFURA_PROJECT_ID", ""),
-            "eth_address": os.getenv("ETHER_ADDRESS", "")
+            "coingecko"           : os.getenv("COINGECKO_API_KEY", ""),
+            "etherscan"           : os.getenv("ETHERSCAN_API_KEY", ""),
+            "infura"              : os.getenv("INFURA_PROJECT_ID", ""),
+            "eth_address"         : os.getenv("ETHER_ADDRESS", "")
         }
     
     @property
     def llm_config(self):
         return {
-            "deepseek_openrouter": os.getenv("DEEPSEEK_OPENROUTER_API_KEY", ""),
-            "deepseek_api":        os.getenv("DEEPSEEK_DEEPSEEK_API_KEY", ""),
-            "anthropic":           os.getenv("ANTHROPIC_API_KEY", ""),
-            "openai":              os.getenv("OAI_API_KEY", "")
+            "deepseek_openrouter" : os.getenv("DEEPSEEK_OPENROUTER_API_KEY", ""),
+            "deepseek_api"        : os.getenv("DEEPSEEK_DEEPSEEK_API_KEY", ""),
+            "anthropic"           : os.getenv("ANTHROPIC_API_KEY", ""),
+            "openai"              : os.getenv("OAI_API_KEY", "")
         }
     
     @property
     def service_config(self):
         return {
-            "manager_url":    os.getenv("MANAGER_SERVICE_URL", ""),
-            "db_url":         os.getenv("DB_SERVICE_URL", ""),
-            "deepseek_local": os.getenv("DEEPSEEK_LOCAL_SERVICE_URL", ""),
-            "vault_url":      os.getenv("VAULT_SERVICE_URL", ""),
-            "txn_url":        os.getenv("TXN_SERVICE_URL", ""),
-            "rag_url":        os.getenv("RAG_SERVICE_URL", "")
+            "manager_url"         : os.getenv("MANAGER_SERVICE_URL", ""),
+            "db_url"              : os.getenv("DB_SERVICE_URL", ""),
+            "deepseek_local"      : os.getenv("DEEPSEEK_LOCAL_SERVICE_URL", ""),
+            "vault_url"           : os.getenv("VAULT_SERVICE_URL", ""),
+            "txn_url"             : os.getenv("TXN_SERVICE_URL", ""),
+            "rag_url"             : os.getenv("RAG_SERVICE_URL", "")
         }
     
     @property
     def service_keys(self):
         return {
-            "manager":        os.getenv("MANAGER_SERVICE_API_KEY", ""),
-            "db":             os.getenv("DB_SERVICE_API_KEY", ""),
-            "deepseek_local": os.getenv("DEEPSEEK_LOCAL_API_KEY", ""),
-            "vault":          os.getenv("VAULT_API_KEY", ""),
-            "txn":            os.getenv("TXN_SERVICE_API_KEY", ""),
-            "rag":            os.getenv("RAG_SERVICE_API_KEY", "")
+            "manager"             : os.getenv("MANAGER_SERVICE_API_KEY", ""),
+            "db"                  : os.getenv("DB_SERVICE_API_KEY", ""),
+            "deepseek_local"      : os.getenv("DEEPSEEK_LOCAL_API_KEY", ""),
+            "vault"               : os.getenv("VAULT_API_KEY", ""),
+            "txn"                 : os.getenv("TXN_SERVICE_API_KEY", ""),
+            "rag"                 : os.getenv("RAG_SERVICE_API_KEY", "")
         }
 
 # ================
@@ -104,20 +104,20 @@ class EnvConfig:
 env = EnvConfig()
 
 # LLM Clients
-deepseek_or_client = OpenRouter(
-    base_url          = "https://openrouter.ai/api/v1",
-    api_key           = env.llm_config["deepseek_openrouter"],
-    include_reasoning = True,
+deepseek_or_client       = OpenRouter(
+    base_url             = "https://openrouter.ai/api/v1",
+    api_key              = env.llm_config["deepseek_openrouter"],
+    include_reasoning    = True,
 )
 
-deepseek_local_client = OpenAI(
-    base_url = env.service_config["deepseek_local"],
-    api_key  = env.service_keys["deepseek_local"]
+deepseek_local_client    = OpenAI(
+    base_url             = env.service_config["deepseek_local"],
+    api_key              = env.service_keys["deepseek_local"]
 )
 
 deepseek_deepseek_client = OpenAI(
-    base_url = "https://api.deepseek.com",
-    api_key  = env.llm_config["deepseek_api"]
+    base_url             = "https://api.deepseek.com",
+    api_key              = env.llm_config["deepseek_api"]
 )
 
 anthropic_client  = Anthropic(api_key=env.llm_config["anthropic"])
@@ -168,16 +168,16 @@ class AgentFlowFactory:
                 "./code",
                 in_con_env = services_to_envs(services)
             ),
-            "genner":          self._create_genner(fe_data),
-            "prev_strategies": self.db.fetch_all_strategies(agent_id),
-            "apis":            services_to_prompts(services)
+            "genner"          : self._create_genner(fe_data),
+            "prev_strategies" : self.db.fetch_all_strategies(agent_id),
+            "apis"            : services_to_prompts(services)
         }
 
     def _create_genner(self, fe_data):
         model_map = {
-            "deepseek":  "deepseek_or",
-            "anthropic": "anthropic",
-            "openai":    "openai"
+            "deepseek"  : "deepseek_or",
+            "anthropic" : "anthropic",
+            "openai"    : "openai"
         }
         model = model_map.get(fe_data["model"], fe_data["model"])
         
@@ -237,21 +237,21 @@ class AgentFlowFactory:
     def _build_flow_function(self, agent, fe_data, session_id, common):
         """Build Process Function"""
         base_params = {
-            "agent":       agent,
-            "session_id":  session_id,
-            "role":        fe_data["role"],
-            "time":        fe_data["time"],
-            "apis":        common["apis"],
-            "metric_name": fe_data["metric_name"],
-            "summarizer":  self.summarizer
+            "agent"       : agent,
+            "session_id"  :  session_id,
+            "role"        : fe_data["role"],
+            "time"        : fe_data["time"],
+            "apis"        : common["apis"],
+            "metric_name" : fe_data["metric_name"],
+            "summarizer"  : self.summarizer
         }
         
         if self.agent_type == "trading":
             flow = trading_assisted_flow
             base_params.update({
-                "network": fe_data["network"],
-                "trading_instruments": fe_data["trading_instruments"],
-                "txn_service_url": env.service_config["txn_url"]
+                "network"             : fe_data["network"],
+                "trading_instruments" : fe_data["trading_instruments"],
+                "txn_service_url"     : env.service_config["txn_url"]
             })
         else:
             flow = marketing_unassisted_flow

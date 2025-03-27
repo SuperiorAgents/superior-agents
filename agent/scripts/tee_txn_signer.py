@@ -1,5 +1,6 @@
 import os
 import requests
+
 from dotenv            import load_dotenv
 from fastapi           import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -16,13 +17,13 @@ load_dotenv()
 
 # Settings
 class Settings(BaseSettings):
-    ETHER_PRIVATE_KEY: str
-    ONEINCH_API_KEY: str
+    ETHER_PRIVATE_KEY : str
+    ONEINCH_API_KEY   : str
 
 
 settings = Settings(
-    ETHER_PRIVATE_KEY=os.getenv("ETHER_PRIVATE_KEY") or "",
-    ONEINCH_API_KEY=os.getenv("ONEINCH_API_KEY") or "",
+    ETHER_PRIVATE_KEY = os.getenv("ETHER_PRIVATE_KEY") or "",
+    ONEINCH_API_KEY   = os.getenv("ONEINCH_API_KEY") or "",
 )
 
 
@@ -33,11 +34,11 @@ class RateLimitException(Exception):
 
 
 app = FastAPI(
-    title="Token Swap API",
-    description="API for swapping tokens using 1inch protocol with TEE transaction signing",
-    version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    title       = "Token Swap API",
+    description = "API for swapping tokens using 1inch protocol with TEE transaction signing",
+    version     = "1.0.0",
+    docs_url    = "/docs",
+    redoc_url   = "/redoc",
 )
 web3 = Web3(
     Web3.HTTPProvider(
@@ -59,13 +60,13 @@ def get_token_decimals(token_address: str) -> int:
     # ERC20 ABI for decimals function
     abi = [
         {
-            "constant": True,
-            "inputs": [],
-            "name": "decimals",
-            "outputs": [{"name": "", "type": "uint8"}],
-            "payable": False,
-            "stateMutability": "view",
-            "type": "function",
+            "constant"        : True,
+            "inputs"          : [],
+            "name"            : "decimals",
+            "outputs"         : [{"name": "", "type": "uint8"}],
+            "payable"         : False,
+            "stateMutability" : "view",
+            "type"            : "function",
         }
     ]
 
@@ -124,34 +125,28 @@ class SwapRequest(BaseModel):
 
 
 class SwapResponse(BaseModel):
-    transaction_hash: Optional[str]
-    status: str
-    error: Optional[str] = None
+    transaction_hash : Optional[str]
+    status           : str
+    error            : Optional[str] = None
 
 
 class QuoteRequest(BaseModel):
-    token_in: str
-    token_out: str
-    amount_in: str
+    token_in  : str
+    token_out : str
+    amount_in : str
 
 
 class QuoteResponse(BaseModel):
-    amount_out: str
-    # price_impact: float
-    # minimum_received: str
-
+    amount_out : str
 
 # API Endpoints
 @app.get("/health")
 async def health_check():
     return {
         "status": "healthy",
-        # "eth_address": ETHER_ADDRESS[:6] + "..." + ETHER_ADDRESS[-4:] if ETHER_ADDRESS else "Not set"
     }
 
-
 nonce = None
-
 
 def use_nonce(address):
     global nonce
@@ -220,19 +215,19 @@ def build_swap_tx(request: SwapRequest, address):
     requestOptions = {
         "headers": {"Authorization": f"Bearer {settings.ONEINCH_API_KEY}"},
         "params": {
-            "src": request.token_in,
-            "dst": request.token_out,
-            "amount": request.amount_in,
-            "from": address,
-            "eoa": address,
-            "slippage": request.slippage,
-            "disableEstimate": True,
+            "src"             : request.token_in,
+            "dst"             : request.token_out,
+            "amount"          : request.amount_in,
+            "from"            : address,
+            "eoa"             : address,
+            "slippage"        : request.slippage,
+            "disableEstimate" : True,
         },
     }
 
     # Prepare request components
     headers = requestOptions.get("headers", {})
-    params = requestOptions.get("params", {})
+    params  = requestOptions.get("params", {})
 
     response = requests.get(apiUrl, headers=headers, params=params)
     print("build_swap_tx: response", response.text)
@@ -247,9 +242,9 @@ def build_swap_tx(request: SwapRequest, address):
 
 
 def estimate_gas_price():
-    base_fee = web3.eth.gas_price
+    base_fee     = web3.eth.gas_price
     priority_fee = 2000000000  # 2 Gwei in wei
-    total_fee = base_fee + priority_fee
+    total_fee    = base_fee + priority_fee
 
     return total_fee  # this is returned in wei
 
@@ -257,7 +252,7 @@ def estimate_gas_price():
 @retry(RateLimitException, delay=1)
 def build_and_send_transaction(transaction, address):
     # Convert all addresses to checksum format
-    transaction["to"] = Web3.to_checksum_address(transaction["to"])
+    transaction["to"]   = Web3.to_checksum_address(transaction["to"])
     transaction["from"] = Web3.to_checksum_address(address)
     # If there's data field, decode it to find and convert any addresses
     if "data" in transaction:
@@ -266,19 +261,19 @@ def build_and_send_transaction(transaction, address):
 
     # Remove any fields that shouldn't be in the transaction
     send_transaction = {
-        "from": transaction["from"],
-        "to": transaction["to"],
-        "data": transaction["data"],
+        "from" : transaction["from"],
+        "to"   : transaction["to"],
+        "data" : transaction["data"],
     }
 
     # use the function to retrieve how many gwei to use for gas
     total_fee = estimate_gas_price()
 
     # convert Wei to Gwei
-    fee_gwei = web3.from_wei(total_fee, "gwei")
+    fee_gwei  = web3.from_wei(total_fee, "gwei")
     print("Reasonable fee: " + str(fee_gwei) + " Gwei")
 
-    send_transaction["nonce"] = use_nonce(address)
+    send_transaction["nonce"]    = use_nonce(address)
     send_transaction["gasPrice"] = total_fee
     print("transaction:", send_transaction)
 
@@ -314,8 +309,8 @@ async def get_account():
 
 @app.post("/api/v1/swap")
 async def swap_tokens(
-    req: Request,
-    request: SwapRequest,
+    req     : Request,
+    request : SwapRequest,
 ):
     """
     Swap token in for token out
@@ -325,9 +320,10 @@ async def swap_tokens(
     address = Web3.to_checksum_address(
         Account.from_key(settings.ETHER_PRIVATE_KEY).address
     )
-    allowance = check_allowance(request.token_in, address)
-    decimals = get_token_decimals(request.token_in)
-    amount_in = scale_amount_with_decimals(request.amount_in, decimals)
+
+    allowance         = check_allowance(request.token_in, address)
+    decimals          = get_token_decimals(request.token_in)
+    amount_in         = scale_amount_with_decimals(request.amount_in, decimals)
     request.amount_in = amount_in
     if int(allowance) < amount_in:
         approval_tx = build_approval_tx(request.token_in, request.amount_in, address)
@@ -347,17 +343,17 @@ def oneInchQuote(request: QuoteRequest):
     requestOptions = {
         "headers": {"Authorization": f"Bearer {settings.ONEINCH_API_KEY}"},
         "params": {
-            "src": request.token_in,
-            "dst": request.token_out,
-            "amount": request.amount_in,
-            "includeProtocols": True,
-            "includeGas": True,
+            "src"              : request.token_in,
+            "dst"              : request.token_out,
+            "amount"           : request.amount_in,
+            "includeProtocols" : True,
+            "includeGas"       : True,
         },
     }
 
     # Prepare request components
-    headers = requestOptions.get("headers", {})
-    params = requestOptions.get("params", {})
+    headers  = requestOptions.get("headers", {})
+    params   = requestOptions.get("params", {})
 
     response = requests.get(apiUrl, headers=headers, params=params)
     if response.status_code != 200:
@@ -372,10 +368,9 @@ def oneInchQuote(request: QuoteRequest):
 async def get_quote(
     request: QuoteRequest,
 ):
-    decimal = get_token_decimals(request.token_in)
-    request.amount_in = scale_amount_with_decimals(request.amount_in, decimal)
+    decimal              = get_token_decimals(request.token_in)
+    request.amount_in    = scale_amount_with_decimals(request.amount_in, decimal)
     oneInchQuoteResponse = oneInchQuote(request)
-    # okxQuoteResponse = okxQuote(request)
     return oneInchQuoteResponse
 
 

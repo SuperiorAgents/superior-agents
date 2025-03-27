@@ -55,12 +55,12 @@ def get_git_info():
         commit_hash = subprocess.check_output(hash_cmd, universal_newlines=True).strip()
 
         # Get the current branch name
-        branch_cmd = ["git", "rev-parse", "--abbrev-ref", "HEAD"]
-        branch     = subprocess.check_output(branch_cmd, universal_newlines=True).strip()
+        branch_cmd  = ["git", "rev-parse", "--abbrev-ref", "HEAD"]
+        branch      = subprocess.check_output(branch_cmd, universal_newlines=True).strip()
 
         # Get the commit date
-        date_cmd = ["git", "log", "-1", "--format=%cd", "--date=iso"]
-        date_str = subprocess.check_output(date_cmd, universal_newlines=True).strip()
+        date_cmd    = ["git", "log", "-1", "--format=%cd", "--date=iso"]
+        date_str    = subprocess.check_output(date_cmd, universal_newlines=True).strip()
 
         return {"hash": commit_hash, "branch": branch, "date": date_str}
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
@@ -80,11 +80,11 @@ if __name__ == "__main__":
     trading_prompt_hash   = hash(json.dumps(trading_default_prompts, sort_keys=True))
 
     data = {
-        "trading": trading_default_prompts,
-        "marketing": marketing_default_prompts,
-        "git_info": get_git_info(),
-        "marketing_prompt_hash": marketing_prompt_hash,
-        "trading_prompt_hash": trading_prompt_hash,
+        "trading"               : trading_default_prompts,
+        "marketing"             : marketing_default_prompts,
+        "git_info"              : get_git_info(),
+        "marketing_prompt_hash" : marketing_prompt_hash,
+        "trading_prompt_hash"   : trading_prompt_hash,
     }
 
     filepath = Path(DATA_FOLDER) / "prompts.json"
