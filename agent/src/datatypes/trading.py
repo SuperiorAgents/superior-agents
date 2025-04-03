@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import datetime
 from decimal import Decimal
-from typing import Dict, List, Optional, TypedDict
+from typing import Dict, List, Optional, TypedDict, Any
 from enum import Enum
 
 
@@ -70,3 +70,30 @@ class TradingAgentState(Enum):
     FAILED_EXECUTION = "failed_execution"
     FAILED_VALIDATION = "failed_validation"
     FAILED_INSUFFICIENT_FUNDS = "failed_insufficient_funds"
+
+
+class GRPOTrainingExample(TypedDict):
+    """
+    Type definition for a GRPO training example.
+    
+    This class defines the structure of training data for Group Relative Policy Optimization,
+    which includes prompts, reasoning, and reward metrics based on portfolio changes.
+    
+    Attributes:
+        prompt (List[Dict[str, str]]): List of messages in the prompt (system, user)
+        reasoning (str): The agent's reasoning process and steps
+        answer (str): The final action/decision taken by the agent
+        reward (float): Reward value calculated based on portfolio change
+        reward_components (Dict[str, float]): Breakdown of how reward was calculated
+        portfolio_start (Dict[str, Any]): Portfolio state at the start
+        portfolio_end (Dict[str, Any]): Portfolio state at the end
+        timestamp (str): ISO timestamp of when the example was created
+    """
+    prompt: List[Dict[str, str]]
+    reasoning: str
+    answer: str  
+    reward: float
+    reward_components: Dict[str, float]
+    portfolio_start: Dict[str, Any]
+    portfolio_end: Dict[str, Any]
+    timestamp: str

@@ -167,6 +167,8 @@ def setup_trading_agent_flow(
         metric_name=metric_name,
         txn_service_url=TXN_SERVICE_URL,
         summarizer=summarizer,
+        collect_grpo_data=collect_grpo_data,
+        grpo_output_dir=grpo_output_dir,
     )
 
     def wrapped_flow(prev_strat, notif_str):
@@ -270,13 +272,25 @@ def setup_marketing_agent_flow(
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("Usage: python main.py [trading|marketing] [session_id] [agent_id]")
-        exit(1)
-    else:
-        agent_type = sys.argv[1]
-        session_id = sys.argv[2]
-        agent_id = sys.argv[3]
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Run a trading or marketing agent')
+    parser.add_argument('agent_type', choices=['trading', 'marketing'], help='Type of agent to run')
+    parser.add_argument('session_id', help='Session ID')
+    parser.add_argument('agent_id', help='Agent ID')
+    parser.add_argument('--grpo', action='store_true', help='Enable GRPO data collection')
+    parser.add_argument('--grpo-dir', default='data/grpo', help='Directory for GRPO training data')
+    
+    args = parser.parse_args()
+    
+    agent_type = args.agent_type
+    session_id = args.session_id
+    agent_id = args.agent_id
+    collect_grpo_data = args.grpo
+    grpo_output_dir = args.grpo_dir
+    
+    if collect_grpo_data:
+        logger.info(f"GRPO data collection enabled, output directory: {grpo_output_dir}")
 
     db = APIDB(base_url=DB_SERVICE_URL, api_key=DB_SERVICE_API_KEY)
 

@@ -1,11 +1,13 @@
 from pprint import pformat
 import sys
-from typing import Callable, List
+import json
+from typing import Callable, List, Dict, Any, Optional
 
 from loguru import logger
 from result import UnwrapError
 from src.agent.trading import TradingAgent
 from src.datatypes import StrategyData, StrategyInsertData
+from src.grpo_collector import GRPOCollector
 
 
 def assisted_flow(
@@ -21,6 +23,8 @@ def assisted_flow(
     notif_str: str | None,
     txn_service_url: str,
     summarizer: Callable[[List[str]], str],
+    collect_grpo_data: bool = False,
+    grpo_output_dir: str = "data/grpo"
 ):
     """
     Execute an assisted trading workflow with the trading agent.
@@ -42,10 +46,19 @@ def assisted_flow(
         notif_str (str | None): Notification string to process
         txn_service_url (str): URL of the transaction service
         summarizer (Callable[[List[str]], str]): Function to summarize text
+        collect_grpo_data (bool): Whether to collect and save GRPO training data
+        grpo_output_dir (str): Directory for saving GRPO training data
 
     Returns:
         None: This function doesn't return a value but logs its progress
     """
+    # Initialize GRPO collector if enabled
+    grpo_collector = None
+    if collect_grpo_data:
+        grpo_collector = GRPOCollector(output_dir=grpo_output_dir)
+        logger.info(f"GRPO data collection enabled, output dir: {grpo_output_dir}")
+    else:
+        logger.info("GRPO data collection disabled")
     agent.reset()
     logger.info("Reset agent")
     logger.info("Starting on assisted trading flow")
@@ -236,8 +249,14 @@ def assisted_flow(
     trading_code = ""
     err_acc = ""
     code_output = ""
+    trading_code_output = ""
     success = False
     regen = False
+    
+    # Record the portfolio state before attempting trading
+    # This ensures we have portfolio data even if trading fails
+    start_portfolio = agent.sensor.get_metric_fn(metric_name)()
+    
     for i in range(3):
         try:
             if regen:
@@ -284,6 +303,7 @@ def assisted_flow(
         logger.info("Succeeded generating output of trading code!")
         logger.info(f"Output: \n{trading_code_output}")
 
+    # Always get the end metric state regardless of trading success
     end_metric_state = str(agent.sensor.get_metric_fn(metric_name)())
     summarized_state_change = summarizer(
         [
@@ -323,4 +343,44 @@ def assisted_flow(
             strategy_result="failed" if not success else "success",
         ),
     )
+    
+    # Collect and save GRPO data if enabled - always try to do this regardless of trading success
+    if collect_grpo_data and grpo_collector:
+        try:
+            # Parse portfolio states - handle potential parsing errors
+            try:
+                portfolio_start = json.loads(start_metric_state.replace("'", "\""))
+            except Exception as parse_err:
+                logger.warning(f"Error parsing start portfolio state: {str(parse_err)}")
+                # Fallback to a basic structure if parsing fails
+                portfolio_start = {"total_value_usd": 0, "token_balances": []}
+                
+            try:
+                portfolio_end = json.loads(end_metric_state.replace("'", "\""))
+            except Exception as parse_err:
+                logger.warning(f"Error parsing end portfolio state: {str(parse_err)}")
+                # Fallback to a basic structure if parsing fails
+                portfolio_end = {"total_value_usd": 0, "token_balances": []}
+            
+            # Create GRPO training example regardless of trading success
+            grpo_example = grpo_collector.create_training_example(
+                chat_history=agent.chat_history,
+                strategy_output=strategy_output,
+                trading_code=trading_code if trading_code else "Trading code generation failed",
+                portfolio_start=portfolio_start,
+                portfolio_end=portfolio_end,
+                execution_success=success
+            )
+            
+            # Save the GRPO training example
+            output_path = grpo_collector.save_training_example(grpo_example)
+            logger.info(f"Saved GRPO training example to {output_path}")
+            
+            # Calculate reward for logging
+            reward = grpo_example["reward"]
+            logger.info(f"GRPO reward for this session: {reward}")
+            
+        except Exception as e:
+            logger.error(f"Error collecting GRPO data: {str(e)}")
+    
     logger.info("Saved, quitting and preparing for next run...")
