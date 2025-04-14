@@ -13,3 +13,5 @@ wheels/
 .env
 
 node_modules
+
+.vscode/
