@@ -71,3 +71,7 @@ class ManagerClient:
         logger.info(f"Final prompts: \n{pformat(fe_data["prompts"], 1)}")
 
         return fe_data
+
+def fetch_fe_data(type: str):
+    manager_client = ManagerClient("", "")
+    return manager_client.fetch_fe_data(type)

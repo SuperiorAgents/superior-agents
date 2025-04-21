@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Any, Dict, List, TypedDict
+from datetime import datetime
 
 # Database schema reference:
 # CREATE TABLE strategies (
@@ -87,8 +88,9 @@ class StrategyData:
     agent_id: str
     summarized_desc: str
     full_desc: str
-    parameters: StrategyDataParameters
+    parameters: str | StrategyDataParameters
     strategy_result: str
+    created_at: datetime | str
 
 
 @dataclass

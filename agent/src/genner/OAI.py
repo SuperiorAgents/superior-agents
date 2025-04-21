@@ -1,48 +1,50 @@
 import re
-from typing import Callable, List, Tuple
+from typing import Callable, Generator, List, Tuple
 
 import yaml
-from anthropic import Anthropic, TextEvent
-from result import Err, Ok, Result
 from loguru import logger
-from src.config import ClaudeConfig
+from openai import OpenAI
+from openai.types.chat import ChatCompletionChunk
+from result import Err, Ok, Result
+
+from src.config import OAIConfig
 from src.helper import extract_content
 from src.types import ChatHistory
 
 from .Base import Genner
 
 
-class ClaudeGenner(Genner):
+class OAIGenner(Genner):
 	def __init__(
 		self,
-		client: Anthropic,
-		config: ClaudeConfig,
+		client: OpenAI,
+		config: OAIConfig,
 		stream_fn: Callable[[str], None] | None,
 	):
 		"""
-		Initialize the Claude-based generator.
+		Initialize the OAI-based generator.
 
-		This constructor sets up the generator with Anthropic's Claude configuration
+		This constructor sets up the generator with OAI configuration
 		and streaming function.
 
 		Args:
-			client (Anthropic): Anthropic API client
-			config (ClaudeConfig): Configuration for the Claude model
+			client (OpenAI): OpenAI API client
+			config (OAIConfig): Configuration for the OAI model
 			stream_fn (Callable[[str], None] | None): Function to call with streamed tokens,
 				or None to disable streaming
 		"""
-		super().__init__("claude", True if stream_fn else False)
+		super().__init__("OAI", True if stream_fn else False)
 		self.client = client
 		self.config = config
 		self.stream_fn = stream_fn
 
 	def ch_completion(self, messages: ChatHistory) -> Result[str, str]:
 		"""
-		Generate a completion using the Claude API.
+		Generate a completion using the OAI model.
 
-		This method sends the chat history to the Claude API and retrieves
-		a completion response, with optional streaming support. It separates
-		the system message from the rest of the chat history.
+		This method sends the chat history to either the OpenAI API
+		(depending on the client type) and retrieves a completion response, with
+		optional streaming support. It handles the differences between the two APIs.
 
 		Args:
 			messages (ChatHistory): Chat history containing the conversation context
@@ -52,58 +54,98 @@ class ClaudeGenner(Genner):
 				Ok(str): The generated text if successful
 				Err(str): Error message if the API call fails
 		"""
-		system_message = messages.messages[0]
-		assert system_message.role == "system"
-		system = system_message.content
-		ch = ChatHistory(messages.messages[1:])
-
 		final_response = ""
 
 		try:
 			if self.do_stream:
 				assert self.stream_fn is not None
 
-				with self.client.messages.stream(
-					model="claude-3-opus-20240229",
-					max_tokens=1024,
-					messages=ch.as_native(),  # type: ignore
-					system=system,
-				) as stream:
+				stream: Generator[ChatCompletionChunk, None, None] = (
+					self.client.chat.completions.create(
+						model=self.config.model,  # type: ignore
+						messages=messages.as_native(),  # type: ignore
+						max_tokens=self.config.max_tokens,  # type: ignore
+						temperature=self.config.temperature,  # type: ignore
+						stream=True,
+					)
+				)
+
+				if self.config.thinking_delimiter != "":
+					main_entered = False
+					reasoning_entered = False
+
 					token_counts = 0
 					for chunk in stream:
-						if isinstance(chunk, TextEvent):
-							token = chunk.text
-							final_response += token
+						if chunk.choices[0].delta.content is not None:
+							token = chunk.choices[0].delta.content
+
+							if not isinstance(token, str):
+								continue
+
+							if (
+								not reasoning_entered
+								and self.config.thinking_delimiter not in token
+							):
+								reasoning_entered = True
+							elif (
+								reasoning_entered
+								and not main_entered
+								and self.config.thinking_delimiter in token
+							):
+								main_entered = True
+
+							if (
+								reasoning_entered
+								and main_entered
+								and self.config.thinking_delimiter not in token
+							):
+								final_response += token
+
 							self.stream_fn(token)
 
 							token_counts += 1
 							if token_counts >= self.config.max_tokens:
 								break
+					self.stream_fn("\n")
+				else:
+					for chunk in stream:
+						if chunk.choices[0].delta.content is not None:
+							token = chunk.choices[0].delta.content
+
+							if not isinstance(token, str):
+								continue
+
+							final_response += token
+							self.stream_fn(token)
 			else:
-				response = self.client.messages.create(
-					model=self.config.model,  # e.g. "claude-3-opus-20240229"
-					messages=ch.as_native(),  # type: ignore
+				response = self.client.chat.completions.create(
+					model=self.config.model,  # type: ignore
+					messages=messages.as_native(),  # type: ignore
 					max_tokens=self.config.max_tokens,
-					system=system,
+					temperature=self.config.temperature,
+					stream=False,
 				)
 
-				final_response = response.content[0].text  # type: ignore
+				final_response: str = response.choices[0].message.content
+				final_response = final_response.split(self.config.thinking_delimiter)[
+					-1
+				].strip()
 
 			assert isinstance(final_response, str)
 		except AssertionError as e:
-			return Err(f"ClaudeGenner.ch_completion: {e}")
+			return Err(f"OAIGenner.{self.config.model}.ch_completion error: \n{e}")
 		except Exception as e:
 			return Err(
-				f"An unexpected Claude API error while generating code with {self.config.name}, occurred: \n{e}"
+				f"OAIGenner.{self.config.model}.ch_completion: An unexpected error while generating occured: \n{e}"
 			)
 
-		return Ok(final_response)
+		return Ok(final_response.strip())
 
 	def generate_code(
 		self, messages: ChatHistory, blocks: List[str] = [""]
 	) -> Result[Tuple[List[str], str], str]:
 		"""
-		Generate code using the Claude API.
+		Generate code using the OAI model.
 
 		This method handles the complete process of generating code:
 		1. Getting a completion from the model
@@ -125,7 +167,7 @@ class ClaudeGenner(Genner):
 
 			if err := completion_result.err():
 				return Err(
-					f"ClaudeGenner.generate_code: completion_result.is_err(): \n{err}"
+					f"OllamaGenner.generate_code: completion_result.is_err(): \n{err}"
 				)
 
 			raw_response = completion_result.unwrap()
@@ -134,13 +176,13 @@ class ClaudeGenner(Genner):
 
 			if err := extract_code_result.err():
 				return Err(
-					f"ClaudeGenner.generate_code: extract_code_result.is_err(): \n{err}"
+					f"OAIGenner.{self.config.model}.generate_code: extract_code_result.is_err(): \n{err}"
 				)
 
 			processed_code = extract_code_result.unwrap()
 		except Exception as e:
 			return Err(
-				f"An unexpected error while generating code with {self.config.name}, occurred: \n{e}"
+				f"OAIGenner.{self.config.model}.ch_completion: An unexpected error while generating occured: \n{e}"
 			)
 
 		return Ok((processed_code, raw_response))
@@ -149,7 +191,7 @@ class ClaudeGenner(Genner):
 		self, messages: ChatHistory, blocks: List[str] = [""]
 	) -> Result[Tuple[List[List[str]], str], str]:
 		"""
-		Generate lists using the Claude API.
+		Generate lists using the OAI model.
 
 		This method handles the complete process of generating structured lists:
 		1. Getting a completion from the model
@@ -171,7 +213,7 @@ class ClaudeGenner(Genner):
 
 			if err := completion_result.err():
 				return Err(
-					f"ClaudeGenner.generate_list: completion_result.is_err(): \n{err}"
+					f"OAIGenner.generate_list: completion_result.is_err(): \n{err}"
 				)
 
 			raw_response = completion_result.unwrap()
@@ -180,13 +222,13 @@ class ClaudeGenner(Genner):
 
 			if err := extract_list_result.err():
 				return Err(
-					f"ClaudeGenner.generate_list: extract_list_result.is_err(): \n{err}"
+					f"OAIGenner.{self.config.model}.generate_list: extract_list_result.is_err(): \n{err}"
 				)
 
 			extracted_list = extract_list_result.unwrap()
 		except Exception as e:
 			return Err(
-				f"An unexpected error while generating list with {self.config.name}, raw response: {raw_response} occurred: \n{e}"
+				f"OAIGenner.{self.config.model}.ch_completion: An unexpected error while generating occured: \n{e}"
 			)
 
 		return Ok((extracted_list, raw_response))
@@ -194,7 +236,7 @@ class ClaudeGenner(Genner):
 	@staticmethod
 	def extract_code(response: str, blocks: List[str] = [""]) -> Result[List[str], str]:
 		"""
-		Extract code blocks from a Claude model response.
+		Extract code blocks from a OAI model response.
 
 		This static method extracts Python code blocks from the raw model response
 		using regex patterns to find code within markdown code blocks.
@@ -211,6 +253,7 @@ class ClaudeGenner(Genner):
 		extracts: List[str] = []
 
 		for block in blocks:
+			# Extract code from the response
 			try:
 				response = extract_content(response, block)
 				regex_pattern = r"```python\n([\s\S]*?)```"
@@ -226,10 +269,10 @@ class ClaudeGenner(Genner):
 
 				extracts.append(code)
 			except AssertionError as e:
-				return Err(f"ClaudeGenner.extract_code: Regex failed: {e}")
+				return Err(f"OAIGenner.extract_code: Regex failed: \n{e}")
 			except Exception as e:
 				return Err(
-					f"An unexpected error while extracting code occurred, raw response: {response}, error: \n{e}"
+					f"OAIGenner.extract_code: An unexpected error while extracting code occurred, error: \n{e}"
 				)
 
 		return Ok(extracts)
@@ -239,7 +282,7 @@ class ClaudeGenner(Genner):
 		response: str, blocks: List[str] = [""]
 	) -> Result[List[List[str]], str]:
 		"""
-		Extract lists from a Claude model response.
+		Extract lists from a OAI model response.
 
 		This static method extracts YAML-formatted lists from the raw model response
 		using regex patterns to find YAML content within markdown code blocks.
@@ -258,6 +301,8 @@ class ClaudeGenner(Genner):
 		for block in blocks:
 			try:
 				response = extract_content(response, block)
+				# Remove markdown code block markers and find yaml content
+				# Updated regex pattern to handle triple backticks
 				regex_pattern = r"```yaml\n(.*?)```"
 				yaml_match = re.search(regex_pattern, response, re.DOTALL)
 
@@ -270,10 +315,10 @@ class ClaudeGenner(Genner):
 
 				extracts.append(yaml_content)
 			except AssertionError as e:
-				return Err(f"ClaudeGenner.extract_list: Assertion error: {e}")
+				return Err(f"OAIGenner.extract_list: Assertion error: \n{e}")
 			except Exception as e:
 				return Err(
-					f"An unexpected error while extracting code occurred, raw response: {response}, error: \n{e}"
+					f"OAIGenner.extract_list: An unexpected error while extracting list occurred, error: \n{e}"
 				)
 
 		return Ok(extracts)
