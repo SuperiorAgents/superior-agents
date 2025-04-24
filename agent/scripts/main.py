@@ -57,7 +57,7 @@ INFURA_PROJECT_ID = os.getenv("INFURA_PROJECT_ID") or ""
 ETHER_ADDRESS = os.getenv("ETHER_ADDRESS") or ""
 
 # LLM Keys  
-DEEPSEEK_OPENROUTER_API_KEY = os.getenv("DEEPSEEK_OPENROUTER_API_KEY") or ""
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY") or ""
 DEEPSEEK_DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_DEEPSEEK_API_KEY") or ""
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY") or ""
 OAI_API_KEY = os.getenv("OAI_API_KEY") or ""
@@ -81,7 +81,7 @@ RAG_SERVICE_API_KEY = os.getenv("RAG_SERVICE_API_KEY") or ""
 # Clients Setup
 deepseek_or_client = OpenRouter(
     base_url="https://openrouter.ai/api/v1",
-    api_key=DEEPSEEK_OPENROUTER_API_KEY,
+    api_key=OPENROUTER_API_KEY,
     include_reasoning=True,
 )
 deepseek_local_client = OpenAI(
@@ -218,7 +218,7 @@ def setup_marketing_agent_flow(
         api_client=tweepy.API(auth),
     )
 
-    sensor = MarketingSensor(twitter_client, DDGS())
+    sensor = MarketingSensor(twitter_client)
 
     genner = get_genner(
         fe_data["model"],

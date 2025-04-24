@@ -55,13 +55,12 @@ def get_genner(
 	anthropic_client: Anthropic | None = None,
 	or_client: OpenRouter | None = None,
 	llama_client: OpenAI | None = None,
-	qwq_client: OpenAI | None = None,
 	deepseek_config: DeepseekConfig = DeepseekConfig(),
 	claude_config: ClaudeConfig = ClaudeConfig(),
 	openai_config: OpenRouterConfig = OpenRouterConfig(),
 	gemini_config: OpenRouterConfig = OpenRouterConfig(),
 	llama_config: OAIConfig = OAIConfig(),
-	qwq_config: OAIConfig = OAIConfig(),
+	qwq_config: OpenRouterConfig = OpenRouterConfig(),
 ) -> Genner:
 	"""
 	Get a genner instance based on the backend.
@@ -167,14 +166,13 @@ def get_genner(
 
 		return OAIGenner(llama_client, llama_config, stream_fn)
 	elif backend == "qwq":
-		qwq_config.name = "Qwen/QwQ-32B-AWQ"
-		qwq_config.model = "Qwen/QwQ-32B-AWQ"
-		qwq_config.thinking_delimiter = "</think>"
+		qwq_config.name = "qwen/qwq-32b"
+		qwq_config.model = "qwen/qwq-32b"
 
-		if not qwq_client:
-			raise Exception("Using backend 'qwq', QwQ client is not provided.")
+		if not or_client:
+			raise Exception("Using backend 'qwq', OpenRouter client is not provided.")
 
-		return OAIGenner(qwq_client, qwq_config, stream_fn)
+		return OpenRouterGenner(or_client, qwq_config, stream_fn)
 	elif backend == "mock":
 		return MockGenner()
 	raise BackendException(

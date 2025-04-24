@@ -97,9 +97,8 @@ MOCK_NUMBER = 27
 
 
 class MarketingSensor:
-	def __init__(self, twitter_client: TweepyTwitterClient, ddgs: DDGS):
+	def __init__(self, twitter_client: TweepyTwitterClient):
 		self.twitter_client = twitter_client
-		self.ddgs = ddgs
 
 	def get_count_of_followers(self) -> int:
 		try:

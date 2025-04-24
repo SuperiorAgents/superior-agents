@@ -1,4 +1,4 @@
-import logging
+import logging, traceback
 import os
 import sys
 from datetime import datetime
@@ -12,6 +12,8 @@ from loguru import logger
 
 from src.fetch import get_data_raw, get_data_raw_v2
 from src.store import ingest_doc as save_result
+from dotenv import load_dotenv
+load_dotenv()
 
 
 class SaveResultParams(BaseModel):
@@ -25,6 +27,10 @@ class SaveResultParams(BaseModel):
 
 logger.info("App is starting")
 
+if not os.getenv("OPENAI_API_KEY"):
+    logger.critical("Environment variable OPENAI_API_KEY is not set. Exiting.")
+    raise RuntimeError("OPENAI_API_KEY environment variable is required but not set.")
+	
 app = FastAPI(
 	# docs_url=None,
 	# redoc_url=None,
@@ -108,6 +114,7 @@ async def get_relevant_document_raw(
 			message=message,
 		)
 	except Exception as e:
+		logger.error(traceback.format_exc())
 		raise HTTPException(
 			detail={
 				"status": "error",
@@ -177,6 +184,7 @@ async def get_relevant_document_raw_v2(
 			message=message,
 		)
 	except Exception as e:
+		logger.error(traceback.format_exc())
 		raise HTTPException(
 			detail={
 				"status": "error",
@@ -214,6 +222,7 @@ async def store_execution_result(request: Request, params: SaveResultParams):
 			data={"output": output},
 		)
 	except Exception as e:
+		logger.error(traceback.format_exc())
 		return JSONResponse(
 			{
 				"status": "error",
@@ -247,6 +256,7 @@ async def store_execution_result_batch(params: List[SaveResultParams]):
 			data={"outputs": outputs},
 		)
 	except Exception as e:
+		logger.error(traceback.format_exc())
 		raise HTTPException(
 			detail={
 				"status": "error",

@@ -8,7 +8,6 @@ from pydantic_settings import BaseSettings
 from web3              import Web3, Account
 from retry             import retry
 from typing            import Optional
-from scripts.db        import update_agent_session as db
 from decimal           import Decimal
 
 load_dotenv()
@@ -336,9 +335,6 @@ async def swap_tokens(
     swap_tx = build_swap_tx(request, address)
     print(swap_tx)
     result = build_and_send_transaction(swap_tx, address)
-    db.update_agent_sessions(
-        req.headers.get("x-superior-agent-id"), req.headers.get("x-superior-session-id")
-    )
     return result
 
 

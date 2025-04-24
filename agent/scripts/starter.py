@@ -1,13 +1,17 @@
 import os
 import re
-
+import requests
+import tweepy
 import inquirer
 
 from src.db import SQLiteDB
+from src.client.rag import RAGClient
 from tests.mock_client.rag import MockRAGClient
 from tests.mock_client.interface import RAGInterface
 from tests.mock_sensor.trading import MockTradingSensor
 from tests.mock_sensor.marketing import MockMarketingSensor
+from src.sensor.marketing import MarketingSensor
+from src.sensor.trading import TradingSensor
 from src.sensor.interface import TradingSensorInterface, MarketingSensorInterface
 from src.db import APIDB, DBInterface, SQLiteDB
 from typing import Callable, List, Tuple
@@ -27,6 +31,13 @@ from functools import partial
 from src.flows.trading import assisted_flow as trading_assisted_flow
 from src.flows.marketing import unassisted_flow as marketing_unassisted_flow
 from loguru import logger
+from src.constants import SERVICE_TO_PROMPT, SERVICE_TO_ENV
+from src.constants import FE_DATA_MARKETING_DEFAULTS, FE_DATA_TRADING_DEFAULTS
+from src.manager import fetch_default_prompt
+from dotenv import load_dotenv
+from src.twitter import TweepyTwitterClient
+
+load_dotenv()
 
 def start_marketing_agent(
     agent_type: str,
@@ -194,32 +205,176 @@ def run_cycle(
 
     flow(prev_strat=prev_strat, notif_str=current_notif)
     db.add_cycle_count(session_id, agent_id)
+
+def setup_marketing_sensor() -> MarketingSensorInterface:
+    TWITTER_API_KEY = os.environ['TWITTER_API_KEY']
+    TWITTER_API_KEY_SECRET = os.environ['TWITTER_API_KEY_SECRET']
+    TWITTER_ACCESS_TOKEN = os.environ['TWITTER_ACCESS_TOKEN']
+    TWITTER_ACCESS_TOKEN_SECRET = os.environ['TWITTER_ACCESS_TOKEN_SECRET']
+    auth = tweepy.OAuth1UserHandler(
+        consumer_key=TWITTER_API_KEY,
+        consumer_secret=TWITTER_API_KEY_SECRET,
+        access_token=TWITTER_ACCESS_TOKEN, 
+        access_token_secret=TWITTER_ACCESS_TOKEN_SECRET
+    )
+
+    twitter_client = TweepyTwitterClient(
+        client=tweepy.Client(
+            consumer_key=TWITTER_API_KEY,
+            consumer_secret=TWITTER_API_KEY_SECRET,
+            access_token=TWITTER_ACCESS_TOKEN,
+            access_token_secret=TWITTER_ACCESS_TOKEN_SECRET,
+            wait_on_rate_limit=True  # Add rate limit handling
+        ),
+        api_client=tweepy.API(auth),
+    )
+    sensor = MarketingSensor(twitter_client)
+    return sensor
+
+def extra_research_tools_questions(answer_research_tools):
+    questions_rt = []
+    var_rt = []
+    for research_tool in answer_research_tools:
+        for env in SERVICE_TO_ENV[research_tool]:
+            if not os.getenv(env):
+                var_rt.append(env)
+                questions_rt.append(inquirer.Text(name=env, message=f'Please enter value for this variable {env}'))
+    answers_rt = inquirer.prompt(questions_rt)
+    for env in var_rt:
+        os.environ[env] = answers_rt[env]
     
+def extra_model_questions(answer_model):
+    model_naming = {
+        'Mock LLM':'mock',
+        'OpenAI (openrouter)':'openai',
+        'Gemini (openrouter)':'gemini',
+        'QWQ (openrouter)':'qwq',
+        'Claude':'claude',
+    }
+
+    if 'Mock LLM'  in answer_model:
+        logger.info("Notice: You are currently using a mock LLM. Responses are simulated for testing purposes.")
+    elif 'openrouter' in answer_model and not os.getenv('OPENROUTER_API_KEY'):
+        question_or_key = [
+            inquirer.Password('or_api_key', message="Please enter the Openrouter API key")
+        ]
+        answers_or_key = inquirer.prompt(question_or_key)
+        os.environ['OPENROUTER_API_KEY'] = answers_or_key['or_api_key']
+    elif 'Claude' in answer_model and not os.getenv('ANTHROPIC_API_KEY'):
+        question_claude_key = [
+            inquirer.Password('claude_api_key', message="Please enter the Claude API key")
+        ]
+        answers_claude_key = inquirer.prompt(question_claude_key)
+        os.environ['ANTHROPIC_API_KEY'] = answers_or_key['claude_api_key']
+    return model_naming[answer_model]
+
+def extra_sensor_questions(answers_agent_type):
+    if answers_agent_type == 'trading':
+        sensor = MockTradingSensor(
+            eth_address="",infura_project_id="",etherscan_api_key=""
+        )
+        sensor_api_keys = ['INFURA_PROJECT_ID', 'ETHERSCAN_API_KEY'] 
+        question_trading_sensor = [inquirer.List(
+            name='sensor', message=f"Do you have these API keys {', '.join(sensor_api_keys)} ?", 
+            choices=["No, I'm using Mock Sensor APIs for now", "Yes, i have these keys"]
+        )]
+        answer_trading_sensor = inquirer.prompt(question_trading_sensor)
+        if answer_trading_sensor['sensor'] == "Yes, i have these keys":
+            sensor_api_keys += ['ETHER_ADDRESS']
+            sensor_api_keys = [x for x in sensor_api_keys if not os.getenv(x)]
+            question_sensor_api_keys = [inquirer.Text(name=x, message=f'Please enter value for this variable {x}') for x in sensor_api_keys if not os.getenv(x)]
+            answer_sensor_api_keys = inquirer.prompt(question_sensor_api_keys)
+            for x in sensor_api_keys:
+                os.environ[x] = answer_sensor_api_keys[x]
+            sensor = TradingSensor(
+                eth_address=os.environ['ETHER_ADDRESS'],
+                infura_project_id=os.environ['INFURA_PROJECT_ID'],
+                etherscan_api_key=os.environ['ETHERSCAN_API_KEY'],
+            )
+        else:
+            sensor = MockTradingSensor(
+                eth_address="",infura_project_id="",etherscan_api_key=""
+            )
+            
+    elif answers_agent_type == 'marketing':
+        sensor = MockMarketingSensor()
+        sensor_api_keys = ["TWITTER_API_KEY","TWITTER_API_KEY_SECRET","TWITTER_ACCESS_TOKEN","TWITTER_ACCESS_TOKEN_SECRET"]
+        question_marketing_sensor = [inquirer.List(
+            name='sensor', message=f"Do you have these API keys {', '.join(sensor_api_keys)} ?", 
+            choices=["No, I'm using Mock Sensor APIs for now", "Yes, i have these keys"]
+        )]
+        answer_marketing_sensor = inquirer.prompt(question_marketing_sensor)
+        if answer_marketing_sensor['sensor'] == "Yes, i have these keys":
+            sensor_api_keys = [x for x in sensor_api_keys if not os.getenv(x)]
+            question_sensor_api_keys = [inquirer.Text(name=x, message=f'Please enter value for this variable {x}') for x in sensor_api_keys if not os.getenv(x)]
+            answer_sensor_api_keys = inquirer.prompt(question_sensor_api_keys)
+            for x in sensor_api_keys:
+                os.environ[x] = answer_sensor_api_keys[x]
+            sensor = setup_marketing_sensor()
+        else: 
+            sensor = MockMarketingSensor()
+    return sensor
+
+def extra_rag_questions(answer_rag, agent_type):
+    if answer_rag == "Yes, i have setup the RAG":
+        rag_url = 'http://localhost:8080'
+        logger.info(f'Checking default address of RAG service {rag_url}')
+        try:
+            resp = requests.get(rag_url + "/health")
+            resp.raise_for_status()
+            rag = RAGClient(
+                session_id='default_marketing' if agent_type == 'marketing' else 'default_trading',
+                agent_id='default_marketing' if agent_type == 'marketing' else 'default_trading',
+            )
+            logger.info(f'Successfully connected to the RAG service in PORT 8080')
+        except Exception as e:
+            logger.error("RAG hasn't been setup properly. Falling back to Mock RAG API")
+            rag = MockRAGClient(
+                session_id='default_marketing' if agent_type == 'marketing' else 'default_trading',
+                agent_id='default_marketing' if agent_type == 'marketing' else 'default_trading',
+            )
+    else:
+        rag = MockRAGClient(
+                session_id='default_marketing' if agent_type == 'marketing' else 'default_trading',
+                agent_id='default_marketing' if agent_type == 'marketing' else 'default_trading',
+            )
+    return rag
+            
+        
+
+
 def starter_prompt():
+    choices_research_tools = ['Twitter', 'DuckDuckGo', 'CoinGecko']
     questions = [
-        inquirer.List('name', message="What LLM model agent will run? (Use space to choose)", choices=['OpenAI (openrouter)','Gemini (openrouter)','Claude', 'Mock LLM'], default=['Gemini (openrouter)']),
-        inquirer.Password('oai_api_key', message="Please enter the OpenAI API key for RAG "),
-        inquirer.Password('or_api_key', message="Please enter the Openrouter API key"),
-        inquirer.Password('claude_api_key', message="Please enter the Claude API key"),
-        inquirer.List(name='agent_type', message="Please choose agent type?", choices=['trading', 'marketing'], default=['trading'])
+        inquirer.List('model', message="What LLM model agent will run? (Use space to choose)", choices=[ 'Mock LLM', 'OpenAI (openrouter)','Gemini (openrouter)', 'QWQ (openrouter)','Claude'], default=['Gemini (openrouter)']),
+        inquirer.Checkbox('research_tools',message="Which research tools do you want to use (use right arrow to choose) ?",choices=[service for service in choices_research_tools]),
+        inquirer.List(name='agent_type', message="Please choose agent type?", choices=['trading', 'marketing'], default=['trading']),
+        inquirer.List(name='rag', message="Have you setup the RAG API (rag-api folder)?", choices=["No, I'm using Mock RAG for now", "Yes, i have setup the RAG"]),
     ]
     answers = inquirer.prompt(questions)
-    if not answers:
-        raise Exception("Please input")
 
-    os.environ['OAI_API_KEY'] = answers['oai_api_key'] # type: ignore
-    os.environ['DEEPSEEK_OPENROUTER_API_KEY'] = answers['or_api_key'] # type: ignore
+    rag_client = extra_rag_questions(answers['rag'], answers['agent_type'])
+    model_name = extra_model_questions(answers['model'])
+    extra_research_tools_questions(answers['research_tools'])
+    
+    sensor = extra_sensor_questions(answers['agent_type'])
+
     os.environ['TXN_SERVICE_URL'] = 'http://localhost:9009'
-    os.environ['ANTHROPIC_API_KEY'] = answers['claude_api_key']
-    fe_data = fetch_fe_data(answers['agent_type'])
-    if answers['name'] == 'Mock LLM':
-        fe_data['model'] = 'mock'
+    if answers['agent_type'] == 'marketing':
+        fe_data = FE_DATA_MARKETING_DEFAULTS.copy()
+    elif answers['agent_type'] == 'trading':
+        fe_data = FE_DATA_TRADING_DEFAULTS.copy()
+
+    fe_data['research_tools'] = answers['research_tools']
+    fe_data['prompts'] = fetch_default_prompt(fe_data,answers['agent_type'])
+    fe_data['model'] = model_name
+    
     or_client = OpenRouter(
         base_url="https://openrouter.ai/api/v1",
-        api_key=os.environ['DEEPSEEK_OPENROUTER_API_KEY'],
+        api_key=os.getenv('OPENROUTER_API_KEY'),
         include_reasoning=True,
     )
-    anthropic_client = Anthropic(api_key=os.environ['ANTHROPIC_API_KEY'])
+    anthropic_client = Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
 
     genner = get_genner(
         fe_data["model"],
@@ -240,11 +395,8 @@ def starter_prompt():
             fe_data=fe_data,
             genner=genner,
             db=SQLiteDB(db_path="db/superior-agents.db"),
-            rag=MockRAGClient(
-                session_id='default_marketing' if answers['agent_type'] == 'marketing' else 'default_trading', 
-                agent_id='default_marketing' if answers['agent_type'] == 'marketing' else 'default_trading', 
-            ),
-            sensor=MockMarketingSensor()
+            rag=rag_client,
+            sensor=sensor
         )
     elif answers['agent_type'] == 'trading':
         start_trading_agent(
@@ -254,14 +406,10 @@ def starter_prompt():
             fe_data=fe_data,
             genner=genner,
             db=SQLiteDB(db_path="db/superior-agents.db"),
-            rag=MockRAGClient(
-                session_id='default_marketing' if answers['agent_type'] == 'marketing' else 'default_trading', 
-                agent_id='default_marketing' if answers['agent_type'] == 'marketing' else 'default_trading', 
-            ),
-            sensor=MockTradingSensor(
-                eth_address="",infura_project_id="",etherscan_api_key=""
-            )
+            rag=rag_client,
+            sensor=sensor
         )
 
 if __name__ == '__main__':
-    starter_prompt()
+    # modify this if you want to run this forever
+    starter_prompt() 

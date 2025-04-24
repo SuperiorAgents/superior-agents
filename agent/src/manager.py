@@ -20,6 +20,7 @@ class ManagerClient:
         """
         self.base_url = base_url
         self.session_id = session_id
+    
 
     def fetch_fe_data(self, type: str):
         """
@@ -75,3 +76,26 @@ class ManagerClient:
 def fetch_fe_data(type: str):
     manager_client = ManagerClient("", "")
     return manager_client.fetch_fe_data(type)
+
+def fetch_default_prompt(fe_data, type: str):
+    # Get default prompts
+    input_data = fe_data.copy()
+    if type == "trading":
+        default_prompts = TradingPromptGenerator.get_default_prompts()
+    else:
+        default_prompts = MarketingPromptGenerator.get_default_prompts()
+    try:
+        logger.info(f"Available default prompts: {list(default_prompts.keys())}")
+
+        # Only fill in missing prompts from defaults
+        missing_prompts = set(default_prompts.keys()) - set(
+            input_data["prompts"].keys()
+        )
+        if missing_prompts:
+            logger.info(f"Adding missing default prompts: {list(missing_prompts)}")
+            for key in missing_prompts:
+                input_data["prompts"][key] = default_prompts[key]
+        return input_data['prompts']
+    except Exception as e:
+        logger.error(f"Error fetching default prompts: {e}, going with defaults")
+        return default_prompts
