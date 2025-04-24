@@ -13,7 +13,6 @@ dependencies = [
     "eth-typing>=5.1.0",
     "faiss-cpu>=1.10.0",
     "fastapi>=0.115.8",
-    "hatchet-sdk>=0.47.0",
     "httpx>=0.28.1",
     "langchain-community>=0.3.17",
     "langchain-openai>=0.3.5",
