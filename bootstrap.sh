@@ -60,7 +60,7 @@ main() {
 
 	# Create virtual environments
 	setup_agent
-	setup_api
+	# setup_api
 	# setup_rag_api
 
 	echo -e "\n✅ Setup complete!\n"
