@@ -12,9 +12,10 @@ RUN apt-get update && apt-get install -y \
 COPY . .
 
 RUN pip install --upgrade pip && pip install -r requirements.txt
+RUN pip install -e .
 
 EXPOSE 8080
 
 HEALTHCHECK CMD curl --fail http://localhost:8080/health
 
-ENTRYPOINT [ "uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8080" ]
+ENTRYPOINT [ "python", "scripts/api.py" ]

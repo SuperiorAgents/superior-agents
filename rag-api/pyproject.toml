@@ -1,0 +1,29 @@
+[project]
+name = "rag-api"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "dotenv>=0.9.9",
+    "faiss-cpu>=1.10.0",
+    "fastapi>=0.115.12",
+    "langchain-community>=0.3.21",
+    "langchain-openai>=0.3.12",
+    "loguru>=0.7.3",
+    "pydantic>=2.11.3",
+    "uvicorn>=0.34.1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+indent-width = 4
+
+[tool.ruff.format]
+indent-style = "tab"
