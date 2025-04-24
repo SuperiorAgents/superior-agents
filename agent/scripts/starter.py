@@ -346,10 +346,10 @@ def extra_rag_questions(answer_rag, agent_type):
 def starter_prompt():
     choices_research_tools = ['Twitter', 'DuckDuckGo', 'CoinGecko']
     questions = [
-        inquirer.List('model', message="What LLM model agent will run? (Use space to choose)", choices=[ 'Mock LLM', 'OpenAI (openrouter)','Gemini (openrouter)', 'QWQ (openrouter)','Claude'], default=['Gemini (openrouter)']),
-        inquirer.Checkbox('research_tools',message="Which research tools do you want to use (use right arrow to choose) ?",choices=[service for service in choices_research_tools]),
-        inquirer.List(name='agent_type', message="Please choose agent type?", choices=['trading', 'marketing'], default=['trading']),
-        inquirer.List(name='rag', message="Have you setup the RAG API (rag-api folder)?", choices=["No, I'm using Mock RAG for now", "Yes, i have setup the RAG"]),
+        inquirer.List('model', message="What LLM model agent will run ?", choices=[ 'Mock LLM', 'OpenAI (openrouter)','Gemini (openrouter)', 'QWQ (openrouter)','Claude'], default=['Gemini (openrouter)']),
+        inquirer.Checkbox('research_tools',message="Which research tools do you want to use (use space to choose) ?",choices=[service for service in choices_research_tools]),
+        inquirer.List(name='agent_type', message="Please choose agent type ?", choices=['trading', 'marketing'], default=['trading']),
+        inquirer.List(name='rag', message="Have you setup the RAG API (rag-api folder) ?", choices=["No, I'm using Mock RAG for now", "Yes, i have setup the RAG"]),
     ]
     answers = inquirer.prompt(questions)
 
