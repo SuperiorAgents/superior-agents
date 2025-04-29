@@ -36,6 +36,7 @@ dependencies = [
     "tweepy>=4.15.0",
     "uvicorn>=0.34.0",
     "web3>=7.7.0",
+    "inquirer>=3.4.0"
 ]
 
 [tool.hatch.build.targets.wheel]

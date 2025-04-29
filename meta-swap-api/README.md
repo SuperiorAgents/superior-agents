@@ -15,6 +15,7 @@ NestJS-based API service supporting multiple aggregators for optimal swap execut
 ## Getting started
 
 ```bash
+cp .env.example .env
 npm install
 npm run start:dev
 ```
@@ -54,5 +55,3 @@ npm run start:dev
 - **token-info/**: Token metadata and information management
 
 ## TODO
-
-- [ ] Integrate with vault signer

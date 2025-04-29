@@ -3,6 +3,7 @@ import re
 import requests
 import tweepy
 import inquirer
+import time
 
 from src.db import SQLiteDB
 from src.client.rag import RAGClient
@@ -359,7 +360,7 @@ def starter_prompt():
     
     sensor = extra_sensor_questions(answers['agent_type'])
 
-    os.environ['TXN_SERVICE_URL'] = 'http://localhost:9009'
+    os.environ['TXN_SERVICE_URL'] = 'http://localhost:9090'
     if answers['agent_type'] == 'marketing':
         fe_data = FE_DATA_MARKETING_DEFAULTS.copy()
     elif answers['agent_type'] == 'trading':
@@ -387,29 +388,33 @@ def starter_prompt():
     summarizer_genner = get_genner(
         "deepseek_v3_or", stream_fn=lambda x: None, or_client=or_client
     )
-    if answers['agent_type'] == 'marketing':
-        start_marketing_agent(
-            agent_type=answers['agent_type'], 
-            session_id='default_marketing' if answers['agent_type'] == 'marketing' else 'default_trading', 
-            agent_id='default_marketing' if answers['agent_type'] == 'marketing' else 'default_trading', 
-            fe_data=fe_data,
-            genner=genner,
-            db=SQLiteDB(db_path="db/superior-agents.db"),
-            rag=rag_client,
-            sensor=sensor
-        )
-    elif answers['agent_type'] == 'trading':
-        start_trading_agent(
-            agent_type=answers['agent_type'], 
-            session_id='default_marketing' if answers['agent_type'] == 'marketing' else 'default_trading', 
-            agent_id='default_marketing' if answers['agent_type'] == 'marketing' else 'default_trading', 
-            fe_data=fe_data,
-            genner=genner,
-            db=SQLiteDB(db_path="db/superior-agents.db"),
-            rag=rag_client,
-            sensor=sensor
-        )
+    # modify this if you want to run this forever
+    for x in range(3):
+        if answers['agent_type'] == 'marketing':
+            start_marketing_agent(
+                agent_type=answers['agent_type'], 
+                session_id='default_marketing' if answers['agent_type'] == 'marketing' else 'default_trading', 
+                agent_id='default_marketing' if answers['agent_type'] == 'marketing' else 'default_trading', 
+                fe_data=fe_data,
+                genner=genner,
+                db=SQLiteDB(db_path="db/superior-agents.db"),
+                rag=rag_client,
+                sensor=sensor
+            )
+        elif answers['agent_type'] == 'trading':
+            start_trading_agent(
+                agent_type=answers['agent_type'], 
+                session_id='default_marketing' if answers['agent_type'] == 'marketing' else 'default_trading', 
+                agent_id='default_marketing' if answers['agent_type'] == 'marketing' else 'default_trading', 
+                fe_data=fe_data,
+                genner=genner,
+                db=SQLiteDB(db_path="db/superior-agents.db"),
+                rag=rag_client,
+                sensor=sensor
+            )
+        session_interval = 15
+        logger.info(f"Waiting for {session_interval} seconds before starting a new cycle...")
+        time.sleep(session_interval)
 
 if __name__ == '__main__':
-    # modify this if you want to run this forever
     starter_prompt() 

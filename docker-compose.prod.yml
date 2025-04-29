@@ -6,9 +6,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "${TRADE_API_PORT:-9009}:${TRADE_API_PORT:-9009}"
-    restart: unless-stopped
 
-secrets:
-  meta-swap-api:
-    file: meta-swap-api/.env
-    
+    env_file:
+      - meta-swap-api/.env
+
+    restart: unless-stopped

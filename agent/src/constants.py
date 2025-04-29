@@ -37,7 +37,7 @@ SERVICE_TO_PROMPT = {
 	# "CoinMarketCap": "CoinMarketCap (env vars ??)",
 	"CoinGecko": dedent("""
 		<CoinGeckoTrendingCoins>
-		curl -X GET "https://api.coingecko.com/api/v3/search/trending" # To find trending coins
+		curl -X GET "https://pro-api.coingecko.com/api/v3/search/trending?x_cg_pro_api_key={{COINGECKO_API_KEY}}" # To find trending coins
 		{{
 			"type": "object",
 			"required": [
@@ -124,7 +124,7 @@ SERVICE_TO_PROMPT = {
 		```
 		</CoinGeckoTrendingCoins>
 		<CoinGeckoSearch>
-		curl -X GET "https://pro-api.coingecko.com/api/v3/search?query={{ASSUMED_TOKEN_SYMBOL}}&x_cg_pro_api_key={{COINGECKO_API_KEY}}) # To find address given the token symbol
+		curl -X GET "https://pro-api.coingecko.com/api/v3/search?query={{ASSUMED_TOKEN_SYMBOL}}&x_cg_pro_api_key={{COINGECKO_API_KEY}} # To find address given the token symbol
 		```return-json-schema
 		{{
 			"$schema": "http://json-schema.org/draft-07/schema#",

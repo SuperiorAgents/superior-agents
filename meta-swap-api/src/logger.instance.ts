@@ -1,31 +1,41 @@
-import { ConsoleLogger, LoggerService } from "@nestjs/common";
+import { ConsoleLogger, type LoggerService } from "@nestjs/common";
 import { Logger, LoggerModule, PinoLogger } from "nestjs-pino";
+import { v4 as uuidv4 } from "uuid";
+import { isDev } from "./utils";
 
 export const BootstrapLogger = (level = "debug"): LoggerService => {
-  const runningScript = process.env["npm_lifecycle_event"];
-  if (runningScript === "start:dev" || runningScript === "start:debug") {
-    return new ConsoleLogger();
-  }
+	if (isDev()) {
+		return new ConsoleLogger();
+	}
 
-  return new Logger(
-    new PinoLogger({
-      pinoHttp: {
-        level,
-      },
-    }),
-    {
-      pinoHttp: {
-        level,
-      },
-    },
-  );
+	return new Logger(
+		new PinoLogger({
+			pinoHttp: {
+				level,
+			},
+		}),
+		{
+			pinoHttp: {
+				level,
+			},
+		},
+	);
 };
 
 export const LoggerModuleInstance = () => {
-  const runningScript = process.env["npm_lifecycle_event"];
-  if (runningScript === "start:dev" || runningScript === "start:debug") {
-    return [];
-  }
+	if (isDev()) {
+		return [];
+	}
 
-  return [LoggerModule.forRoot()];
+	return [
+		LoggerModule.forRoot({
+			pinoHttp: {
+				level: process.env["LOG_LEVEL"] || "info",
+				genReqId: (request) =>
+					request.headers["x-request-id"] ||
+					request.headers["x-correlation-id"] ||
+					uuidv4(),
+			},
+		}),
+	];
 };
