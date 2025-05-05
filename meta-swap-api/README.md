@@ -15,9 +15,9 @@ NestJS-based API service supporting multiple aggregators for optimal swap execut
 ## Getting started
 
 ```bash
+cd meta-swap-api
 cp .env.example .env
-npm install
-npm run start:dev
+docker compose up --build
 ```
 
 ## Project Structure
@@ -54,4 +54,44 @@ npm run start:dev
 - **swap-providers/**: Different DEX and swap provider integrations
 - **token-info/**: Token metadata and information management
 
-## TODO
+## Environment Variable
+
+Make sure to include these variables to .env file in meta-swap-api's directory
+```env
+PORT=9009
+
+# Solana Configuration
+SOLANA_RPC_URL=
+SOLANA_PRIVATE_KEY=
+# Ethereum Configuration
+ETH_RPC_URL=
+ETH_PRIVATE_KEY=
+
+# 1inch API Configuration
+ONEINCH_API_KEY="api key 1,api key 2"
+
+OKX_API_KEY=
+OKX_SECRET_KEY=
+OKX_API_PASSPHRASE=
+OKX_PROJECT_ID=
+```
+
+## Quickstart
+
+1. Navigate to the notification directory:
+
+```bash
+cd meta-swap-api
+```
+
+2. Copy the example environment file and configure your settings:
+
+```bash
+cp .env.example .env
+```
+
+3. Start the notification worker:
+
+```bash
+docker compose up --build
+```

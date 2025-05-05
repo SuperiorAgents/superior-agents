@@ -4,10 +4,7 @@ A comprehensive notification service that aggregates data from multiple sources 
 
 ## Requirements
 
-- Python >= 3.10 (Required for modern async features and type hints)
-- pip (Python package installer)
-- cron (for scheduling)
-- virtualenv or venv (for virtual environment)
+- `docker` and `docker compose`
 
 ## Features
 
@@ -24,102 +21,68 @@ A comprehensive notification service that aggregates data from multiple sources 
 - **Resource Cleanup**: Proper cleanup of connections and resources
 - **Modular Design**: Easy to add new data sources
 
-## Installation
+## Quickstart
 
-1. Ensure you have Python >= 3.10 installed:
-
-```bash
-python3 --version  # Should show 3.10.x or higher
-```
-
-2. Navigate to the notification directory:
+1. Navigate to the notification directory:
 
 ```bash
 cd notification
 ```
 
-3. Create and activate a virtual environment:
-
-```bash
-# Create virtual environment
-python3 -m venv notification-venv
-
-# Or use this to create virtual environment if previous way doesn't work
-python -m venv notification-venv
-
-# Activate virtual environment
-# On Unix or MacOS:
-source notification-venv/bin/activate
-# On Windows:
-.\notification-venv\Scripts\activate
-```
-
-4. Install required dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-5. Copy the example environment file and configure your settings:
+2. Copy the example environment file and configure your settings:
 
 ```bash
 cp .env.example .env
 ```
 
-6. Edit `.env` with your credentials and settings (`.env` must be in the notification directory):
+3. Edit `.env` with your credentials and settings (`.env` must be in the notification directory):
 
-   - API keys for Twitter, Reddit, CoinGecko
-   - Scraping intervals for each service
-   - Logging configuration
-   - Other service-specific settings
+```env
+# Research tools
+# Twitter API Credentials
+# Required for Twitter scraping functionality
+# Get these from https://developer.twitter.com/en/portal/dashboard
+TWITTER_API_KEY=
+TWITTER_API_SECRET=
+TWITTER_ACCESS_TOKEN=
+TWITTER_ACCESS_TOKEN_SECRET=
+TWITTER_BOT_USERNAME=
+TWITTER_CLIENT_ID=          
+TWITTER_CLIENT_SECRET=
+TWITTER_BEARER_TOKEN=
 
-7. Install the cron jobs:
+# Reddit API Credentials
+# Required for Reddit scraping functionality
+# Get these from https://www.reddit.com/prefs/apps
+REDDIT_CLIENT_ID=
+REDDIT_CLIENT_SECRET=
 
-```bash
-chmod +x install_cron.sh
-./install_cron.sh
-```
+# Scraping Configuration
+# Scraper = all, twitter, coingecko, cmc, reddit, rss
+SCRAPER=rss
 
-8. Verify the installation:
-
-```bash
-# Check if dependencies are installed correctly
-pip list
-
-# Check if cron jobs are installed
-crontab -l
-```
-
-### Important Notes
-
-- Always use the virtual environment when running the scrapers manually
-- Make sure the cron jobs are configured to use the correct Python interpreter from the virtual environment
-- The `.env` file must be in the `notification` directory for the cron jobs to work correctly
-- The virtual environment must be recreated if you move the project to a different location
-
-## Configuration
-
-### Environment Variables
-
-Key environment variables in `.env` (must be in the notification directory):
-
-```ini
-# API Authentication
-API_DB_API_KEY=your_api_key
-
-# Scraping Intervals (in minutes)
-TWITTER_SCRAPING_INTERVAL=15
+# Interval between scraping cycles in minutes
+# All set to 60 minutes (1 hour)
+TWITTER_SCRAPING_INTERVAL=60
 COINGECKO_SCRAPING_INTERVAL=60
 CMC_SCRAPING_INTERVAL=60
 REDDIT_SCRAPING_INTERVAL=60
-RSS_SCRAPING_INTERVAL=15
+RSS_SCRAPING_INTERVAL=30
 
-# Price change threshold for crypto alerts
+# Price change threshold for crypto alerts (in percentage)
 PRICE_CHANGE_THRESHOLD=5.0
 
-# Logging
-LOG_LEVEL=INFO
+# Logging Configuration
+# Valid levels: DEBUG, INFO, WARNING, ERROR, CRITICAL
+LOG_LEVEL=INFO 
 ```
+
+4. Start the notification worker:
+
+```bash
+docker compose up --build
+```
+
 
 ## File Structure
 
@@ -147,25 +110,6 @@ SCRAPER=coingecko ./cron_worker.py
 SCRAPER=reddit ./cron_worker.py
 SCRAPER=coinmarketcap ./cron_worker.py
 SCRAPER=rss ./cron_worker.py
-```
-
-### Monitoring Logs
-
-Logs are stored in the `logs` directory with daily rotation:
-
-```bash
-# View today's logs
-tail -f logs/cron_worker_YYYYMMDD.log
-```
-
-### Managing Cron Jobs
-
-```bash
-# View current cron jobs
-crontab -l
-
-# Reinstall cron jobs (e.g., after changing intervals)
-./install_cron.sh
 ```
 
 ## Components
@@ -203,10 +147,6 @@ crontab -l
 
 - **NotificationDatabaseManager**: Handles database operations for notifications
 
-  - Async HTTP client
-  - Automatic retries
-  - Error handling
-
 ## Maintenance
 
 ### Log Rotation
@@ -216,36 +156,6 @@ Logs are automatically rotated and cleaned up:
 - Daily log files: `logs/cron_worker_YYYYMMDD.log`
 - Auto-deletion after 7 days
 
-### Updating
-
-1. Pull latest changes
-2. Update dependencies: `pip install -r requirements.txt`
-3. Update environment variables if needed
-4. Reinstall cron jobs: `./install_cron.sh`
-
-## Troubleshooting
-
-Common issues and solutions:
-
-1. **Cron jobs not running**:
-
-   - Check crontab: `crontab -l`
-   - Check logs for errors
-   - Verify file permissions
-
-2. **API Authentication Errors**:
-
-   - Verify API keys in `.env` which must be in the notification directory
-
-3. **Rate Limiting**:
-
-   - Adjust scraping intervals in `.env`
-   - Check service-specific rate limits
-
-4. **RSS Feed Issues**:
-   - Verify the RSS feed URLs are still valid
-   - Check network connectivity
-   - Look for changes in feed format
 
 ## Adding New RSS Feeds
 

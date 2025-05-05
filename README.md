@@ -1,28 +1,31 @@
 # Superior Agents
 
-## Table of Contents
+## 📚 Table of Contents
 
-- [Superior Agent](#superior-agent)
-  - [Features](#features)
-  - [Documentation site](#documentation-site)
-- [Installation](#installation)
-  - [Requirements](#requirements)
-  - [Agent-side](#agent-side)
-    - [ABI](#abi)
-    - [File Locations](#file-locations)
-    - [Why These Files Are Important](#why-these-files-are-important)
-    - [Agent Configuration JSON Files](#agent-configuration-json-files)
-  - [Python server-side](#python-server-side)
-  - [Environment Variable](#environment-variable)
-- [Quick Start](#quick-start)
-  - [Run Agent Docker Container](#run-agent-docker-container)
-  - [Run Python Server](#run-python-server)
-    - [Uvicorn](#uvicorn)
-  - [Run the Agent](#run-the-agent)
-- [Python Server API Documentation](#python-server-api-documentation)
-- [Notification Scraper (optional)](#notification-scraper-optional)
-- [Contributing](#contributing)
-- [License](#license)
+* [Superior Agent](#superior-agent)
+* [Features](#features)
+* [Documentation Site](#documentation-site)
+* [Installation](#installation)
+
+  * [Requirements for Windows Platform](#requirements-for-windows-platform)
+  * [Requirements](#requirements)
+  * [Bootstrapper](#bootstrapper)
+  * [Agent-side](#agent-side)
+
+    * [Agent Configuration JSON Files](#agent-configuration-json-files)
+    * [Environment Variable](#environment-variable)
+* [Quick Start](#quick-start)
+
+  * [Run Agent Docker Container](#run-agent-docker-container)
+  * [Run the Agent (in a separate tab)](#run-the-agent-in-a-separate-tab)
+* [Meta Swap API](#meta-swap-api)
+
+  * [Meta Swap API Quickstart](#meta-swap-api-quickstart)
+* [Notification Scraper (optional)](#notification-scraper-optional)
+
+  * [Notification Quickstart](#notification-quickstart)
+* [Contributing](#contributing)
+* [License](#license)
 
 ## Superior Agent
 
@@ -45,6 +48,16 @@ For a comprehensive guide to the Superior Agent Framework, please visit our [Doc
 # Installation
 
 🎥 [Quickstart for Setting Up a Trading Agent](https://youtu.be/q6kTvTWc4p4) 
+
+Here’s a revised version of that section with improved grammar and a more formal tone:
+
+---
+
+## Requirements for Windows Platform
+
+Before proceeding, you must have **WSL (Windows Subsystem for Linux)** installed on your system.
+Please follow the instructions in [WINDOWS\_WSL.md](WINDOWS_WSL.md) to set up WSL properly.
+
 
 ## Requirements
 
@@ -128,46 +141,6 @@ pip install -e .
 cp .env.example .env
 ```
 
-### ABI (optional)
-
-> **Note**: These files can be ignored if you're only testing the application locally without trading functionality.
-
-This project requires two essential ABI (Application Binary Interface) files for interacting with Ethereum smart contracts:
-
-- ERC-20 ABI (`erc_20_abi.json`)
-
-- Uniswap Router ABI (`uniswap_router_abi.json`)
-
-### File Locations
-
-Both files should be placed in the following directory structure:
-
-```
-superior-agents/
-  ├── agent/
-  │   ├── docker/
-  │   │   ├── erc_20_abi.json
-  │   │   └── uniswap_router_abi.json
-  │   └── ...
-  └── ...
-```
-
-### Why These Files Are Important
-
-1. **Contract Interaction**: These ABI files are required for the Docker container to:
-
-   - Decode smart contract functions and events
-   - Format transaction data correctly
-   - Interact with the Ethereum blockchain
-
-2. **Trading Operations**: The agent uses these interfaces to:
-   - Read token balances and information
-   - Execute trades on Uniswap
-   - Monitor transaction status
-   - Manage liquidity positions
-
-Make sure both files are present in the correct location before running the Docker container.
-
 ### Agent Configuration JSON Files
 
 The `marketing.json` and `trading.json` files in the `agent/starter/` directory are crucial configuration files that define the default prompts and behavior for marketing and trading agents. These files allow you to customize:
@@ -186,62 +159,35 @@ The `marketing.json` and `trading.json` files in the `agent/starter/` directory 
 
 These JSON files provide a flexible configuration mechanism to control agent behavior without changing the core code.
 
-## Python Server-side
-
-```bash
-# Deactivate your previous virtual env with `deactivate`
-
-# Navigate into root folder
-cd ..
-
-# Create python virtual environment (recommended)
-python -m venv rest-api-venv
-
-# Activate virtual environment
-source rest-api-venv/bin/activate
-
-# Navigate to api_db's directory
-cd rest-api
-
-# Install all required dependencies
-pip install -r requirements.txt
-
-# Copy the example environment file and configure your settings:
-cp .env.example .env
-
-# Initialize the database
-python init_db.py
-
-# Deactivate current virtual env with `deactivate`
-
-# Navigate into root folder
-cd ..
-```
-
 ## Environment Variable
 
 Make sure to include these variables to .env file in agent's directory
 
 ```env
-TWITTER_API_KEY =
-TWITTER_API_SECRET =
-TWITTER_BEARER_TOKEN =
-TWITTER_ACCESS_TOKEN =
-TWITTER_ACCESS_TOKEN_SECRET =
-API_DB_BASE_URL=
-API_DB_API_KEY=
-ETHER_PRIVATE_KEY=
-ETHER_ADDRESS=
+# Research tools
+TWITTER_API_KEY=
+TWITTER_API_KEY_SECRET=
+TWITTER_BEARER_TOKEN=
+TWITTER_ACCESS_TOKEN=
+TWITTER_ACCESS_TOKEN_SECRET=
+
+COINGECKO_API_KEY=
 INFURA_PROJECT_ID=
-ETHERSCAN_KEY=
-COINGECKO_KEY=
+ETHERSCAN_API_KEY=
 ONEINCH_API_KEY=
-DEEPSEEK_OPENROUTER_API_KEY=
+
+# Ether address for testing
+ETHER_ADDRESS=
+ETHER_PRIVATE_KEY=
+
+# LLM Keys
+OPENROUTER_API_KEY=
 DEEPSEEK_DEEPSEEK_API_KEY=
-DEEPSEEK_LOCAL_API_KEY=
 ANTHROPIC_API_KEY=
-DEEPSEEK_URL=
-OAI_API_KEY=
+
+# Our services
+TXN_SERVICE_URL="http://localhost:9009"
+RAG_SERVICE_URL="http://localhost:8080"
 ```
 
 # Quick Start
@@ -256,29 +202,10 @@ cd agent/docker
 docker compose up -d
 ```
 
-## Run Python server
-
-### Uvicorn
-
-Make sure all dependencies have been installed on [previous](#python-server-side) section
-
-```bash
-# Navigate into root folder
-cd ../..
-
-# Activate virtual environment
-source api-db-venv/bin/activate
-
-# Navigate to api_db's directory
-cd api_db
-
-# Start the python FastAPI backend
-uvicorn routes.api:app --port 9020
-```
 
 ## Run the agent (in a seperate tab)
 
-To run the trading bot
+To run the trading/marketing bot
 
 ```bash
 # Navigate into root folder
@@ -288,27 +215,42 @@ cd ../..
 source agent-venv/bin/activate
 
 # Example running command
-python -m scripts.main trading <agent_id>
-
-python -m scripts.main trading agent_007
+python -m scripts.starter
 ```
 
-To run the marketing bot
+# Meta Swap API
+
+NestJS-based API service supporting multiple aggregators for optimal swap execution. The documentation can be found in the [/meta-swap-api](/meta-swap-api)
+
+## Meta Swap API Quickstart 
+1. Navigate to the `meta-swap-api` directory:
 
 ```bash
-# Example running command
-python -m scripts.main marketing <agent_id>
-
-python -m scripts.main marketing agent_007
+cd meta-swap-api
 ```
 
-# Python Server API Documentation
+2. Start the `meta-swap-api`:
 
-Detailed API documentation can be found in the [/api_db](/api_db) directory.
+```bash
+docker compose up --build
+```
 
 # Notification Scraper (optional)
 
 Notification service that aggregates data from multiple sources to be saved on the database. It will be used to feed the data to agents. The documentation can be found in the [/notification](/notification)
+
+## Notification Quickstart 
+1. Navigate to the notification directory:
+
+```bash
+cd notification
+```
+
+2. Start the notification worker:
+
+```bash
+docker compose up --build
+```
 
 # Contributing
 
