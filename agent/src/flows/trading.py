@@ -224,7 +224,7 @@ def assisted_flow(
                     logger.warning("No response found on chat history")
 
                 research_code_result, new_ch = agent.gen_better_code(
-                    research_code=research_code,
+                    research_code=new_ch.get_latest_response(),
                     errors=err_acc,
                 )
                 research_code = research_code_result.unwrap()
@@ -332,7 +332,7 @@ def assisted_flow(
                     logger.warning("No response found on chat history")
 
                 address_research_code_result, new_ch = agent.gen_better_code(
-                    research_code=address_research_code,
+                    research_code=new_ch.get_latest_response(),
                     errors=err_acc,
                 )
                 address_research_code = address_research_code_result.unwrap()
@@ -389,7 +389,7 @@ def assisted_flow(
                     logger.warning("No response found on chat history")
 
                 trading_code_result, new_ch = agent.gen_better_code(
-                    research_code=trading_code,
+                    research_code=new_ch.get_latest_response(),
                     errors=err_acc,
                 )
                 trading_code = trading_code_result.unwrap()

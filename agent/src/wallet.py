@@ -138,6 +138,11 @@ class PriceProvider:
 				except Exception as e:
 					logger.error(f'get_eth_price.err {e}')
 					error_msg = f"{provider['name']}: {str(e)}"
+					if "port=443)" in error_msg:
+						logger.error(
+							f"get_eth_price.err {provider['name']}: {provider['url']} doesn't work on your network, trying other provider..."
+						)
+						break
 					errors.append(error_msg)
 					print(f"Error with {error_msg}")
 
@@ -194,6 +199,11 @@ class PriceProvider:
 				except Exception as e:
 					logger.error(f'get_token_price.err {e}')
 					error_msg = f"{provider['name']}: {str(e)}"
+					if "port=443)" in error_msg:
+						logger.error(
+							f"get_token_price.err {provider['name']}: {provider['url']} doesn't work on your network, trying other provider..."
+						)
+						break
 					errors.append(error_msg)
 					print(f"Error with {error_msg}")
 

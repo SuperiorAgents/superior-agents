@@ -86,7 +86,6 @@ def get_summarizer(
         >>> summarizer = get_summarizer(genner)
         >>> summary = summarizer(["Point 1", "Point 2", "Point 3"])
     """
-    genner.set_do_stream(False)
     
     return partial(
         summarize,
