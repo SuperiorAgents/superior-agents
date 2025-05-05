@@ -131,7 +131,7 @@ class OpenRouterGenner(Genner):
 				)
 
 			raw_response = completion_result.unwrap()
-			logger.error(f"Response: {raw_response}")
+			# logger.error(f"Response: {raw_response}")
 
 			extract_code_result = self.extract_code(raw_response, blocks)
 

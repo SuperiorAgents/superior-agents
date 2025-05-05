@@ -245,7 +245,7 @@ def assisted_flow(
                     )
                     research_code = research_code_result.unwrap()
 
-            logger.info(f"Response: {new_ch.get_latest_response()}")
+            # logger.info(f"Response: {new_ch.get_latest_response()}")
             # Temporarily avoid new chat to reduce cost
             # agent.chat_history += new_ch
             for_training_chat_history += new_ch
@@ -291,7 +291,7 @@ def assisted_flow(
             )
             strategy_output = strategy_output_result.unwrap()
 
-            logger.info(f"Response: {new_ch.get_latest_response()}")
+            # logger.info(f"Response: {new_ch.get_latest_response()}")
             # Temporarily avoid new chat to reduce cost
             # agent.chat_history += new_ch
             for_training_chat_history += new_ch
@@ -342,7 +342,7 @@ def assisted_flow(
                 )
                 address_research_code = address_research_code_result.unwrap()
 
-            logger.info(f"Response: {new_ch.get_latest_response()}")
+            # logger.info(f"Response: {new_ch.get_latest_response()}")
             # Temporarily avoid new chat to reduce cost
             # agent.chat_history += new_ch
             for_training_chat_history += new_ch
@@ -405,7 +405,7 @@ def assisted_flow(
                 )
                 trading_code = trading_code_result.unwrap()
 
-            logger.info(f"Response: {new_ch.get_latest_response()}")
+            # logger.info(f"Response: {new_ch.get_latest_response()}")
             # Temporarily avoid new chat to reduce cost
             # agent.chat_history += new_ch
             for_training_chat_history += new_ch
