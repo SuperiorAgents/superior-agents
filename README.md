@@ -44,6 +44,17 @@ This project is a trading and marketing agent that interacts with various APIs t
 ## Documentation Site
 
 For a comprehensive guide to the Superior Agent Framework, please visit our [Documentation Site](https://superioragents.github.io/superioragents-docs/).
+Here’s a more polished and grammatically correct version of that section:
+
+## Folder Structure
+
+Each folder in the repository represents a self-contained component of the system:
+
+* [`agent`](./agent) — Contains the core trading and marketing agent logic.
+* `db` — Serves as the storage directory for databases and RAG (Retrieval-Augmented Generation) files.
+* [`meta-swap-api`](./meta-swap-api) — A NestJS-based API that facilitates token swaps using multiple aggregators.
+* [`notification`](./notification) — Handles data collection from various sources to feed into the agent.
+* [`rag`](./rag-api) — Hosts the RAG API for enhanced research and data retrieval capabilities.
 
 # Installation
 
