@@ -55,14 +55,15 @@ create table if not exists sup_master_settings (
 
 create table if not exists sup_notifications (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    notification_id varchar(100),
-    bot_username varchar(100),
-    relative_to_scraper_id text,
-    source varchar(500),
-    short_desc varchar(500),
-    long_desc text,
-    notification_date datetime,
-    created datetime default CURRENT_TIMESTAMP
+    notification_id TEXT,
+    bot_username TEXT,
+    relative_to_scraper_id TEXT,
+    source TEXT,
+    short_desc TEXT,
+    long_desc TEXT,
+    notification_date DATETIME,
+    unique_hash TEXT UNIQUE,
+    created DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 create index if not exists sup_notifications_source_IDX on sup_notifications (source);
@@ -140,4 +141,14 @@ create table if not exists sup_wallet_snapshots (
 );
 
 create index if not exists idx_agent_time on sup_wallet_snapshots (agent_id, snapshot_time);
+
+create table if not exists sup_token_price (
+  data_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  token_addr TEXT NOT NULL,
+  symbol TEXT,
+  price REAL,
+  last_updated_at DATETIME NOT NULL,
+  metadata TEXT,
+  UNIQUE(token_addr)
+);
 

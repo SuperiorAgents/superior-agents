@@ -6,6 +6,8 @@ import re
 from textwrap import dedent
 from typing import Callable, Dict, List
 from src.constants import SERVICE_TO_PROMPT, SERVICE_TO_ENV
+import string
+import random
 
 @contextmanager
 def timeout(seconds: int):
@@ -179,3 +181,23 @@ def get_latest_notifications_by_source(notifications: List[Dict]) -> List[Dict]:
         latest_notifications.append(sorted_notifs[0])
 
     return latest_notifications
+
+def nanoid(size=21) -> str:
+	"""Generates a random string of a given size.
+	The string is composed of ASCII letters and digits.
+
+	Examples:
+		>>> nanoid()
+		'A1b2C3d4E5f6G7h8I9j0'
+		>>> nanoid(10)
+		'K1l2M3n4O5p6'
+
+	Args:
+		size (int, optional): Size of the random string to generate. Defaults to 21.
+
+	Returns:
+		str: Random string of the given size
+	"""
+
+	alphabet = string.ascii_letters + string.digits
+	return "".join(random.choice(alphabet) for _ in range(size))

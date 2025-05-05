@@ -8,3 +8,5 @@ services:
       - .env
     ports:
       - "8080:8080"
+    volumes:
+      - ../db/rag/:/app/pkl/v4

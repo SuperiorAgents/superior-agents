@@ -2,15 +2,14 @@
 import asyncio
 import logging
 import sys
+from datetime import datetime
+from pathlib import Path
 import os
+from typing import Optional
+from crontab import CronTab
 import signal
 import time
 import subprocess
-
-from datetime import datetime
-from pathlib  import Path
-from typing   import Optional
-from crontab  import CronTab
 
 from scrapers import (
     ScraperManager,
@@ -21,11 +20,9 @@ from scrapers import (
     RedditScraper,
     RSSFeedScraper,
 )
-
-from vault_service                 import VaultService
 from notification_database_manager import NotificationDatabaseManager
-from dotenv                        import load_dotenv
 
+from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
@@ -35,16 +32,13 @@ log_dir.mkdir(exist_ok=True)
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(
-            log_dir / f"cron_worker_{datetime.now().strftime('%Y%m%d')}.log"
-        ),
-        logging.StreamHandler(sys.stdout),
-    ],
+        logging.FileHandler(log_dir / f"cron_worker_{datetime.now().strftime('%Y%m%d')}.log"),
+        logging.StreamHandler(sys.stdout)
+    ]
 )
 logger = logging.getLogger(__name__)
-
 
 def handle_shutdown(signum, frame):
     """
@@ -58,7 +52,6 @@ def handle_shutdown(signum, frame):
     logger.info("Received shutdown signal, cleaning up...")
     sys.exit(0)
 
-
 def is_process_running() -> bool:
     """
     Check if another instance of the cron worker is running.
@@ -66,7 +59,6 @@ def is_process_running() -> bool:
     Returns:
         bool: True if another instance is running, False otherwise
     """
-    scraper_type: str = os.getenv("SCRAPER", "all")
     try:
         # Build search pattern
         pattern = f"./cron_worker.py"
@@ -92,7 +84,7 @@ def is_process_running() -> bool:
                     continue
             
             if valid_pids:
-                logger.warning(f"Found existing processes for {scraper_type}: {valid_pids}")
+                logger.warning(f"Found existing processes: {valid_pids}")
                 return True
         return False
         
@@ -111,7 +103,7 @@ class CronManager:
         self.notification_dir = notification_dir
         self.cron = CronTab(user=True)
         self.venv_python = str(Path(notification_dir) / "venv" / "bin" / "python")
-
+        
     def _create_job(self, name: str, interval: int, scraper: str) -> None:
         """
         Create a single long-running daemon job.
@@ -128,7 +120,7 @@ class CronManager:
             comment=f"notification_{name}"
         )
         job.every_reboot()
-
+        
     def setup_jobs(self, intervals: dict) -> None:
         """
         Setup all cron jobs with specified intervals.
@@ -142,47 +134,46 @@ class CronManager:
                 f"Virtual environment Python not found at {self.venv_python}. "
                 "Please create and activate the virtual environment first."
             )
-
+        
         # Setup scraper jobs
         self._create_job("twitter", intervals["twitter"], "twitter")
         self._create_job("coingecko", intervals["coingecko"], "coingecko")
         self._create_job("coinmarketcap", intervals["cmc"], "coinmarketcap")
         self._create_job("reddit", intervals["reddit"], "reddit")
         self._create_job("rss", intervals["rss"], "rss")
-
+        
         # Setup log rotation job
         self.cron.remove_all(comment="notification_log_rotation")
         log_job = self.cron.new(
             command=f'find {self.notification_dir}/logs -name "cron_worker_*.log" -mtime +7 -delete',
-            comment="notification_log_rotation",
+            comment="notification_log_rotation"
         )
         log_job.every().day()
-
+        
         # Add PID cleanup job
         self.cron.remove_all(comment="notification_pid_cleanup")
         pid_cleanup_job = self.cron.new(
             command=f'find {PID_DIR} -name "*.pid" -mtime +1 -delete',
-            comment="notification_pid_cleanup",
+            comment="notification_pid_cleanup"
         )
         pid_cleanup_job.every().day()
-
+        
         # Write to crontab
         self.cron.write()
-
+        
     def remove_all_jobs(self) -> None:
         """Remove all notification-related cron jobs."""
         self.cron.remove_all(comment=lambda c: c and c.startswith("notification_"))
         self.cron.write()
-
+        
     def list_jobs(self) -> None:
-        """List all notification-related cron jobs."""
+        """List all notification-related cron jobs and their schedules."""
         for job in self.cron:
             if job.comment and job.comment.startswith("notification_"):
                 print(f"{job.comment}:")
                 print(f"  Schedule: {job.slices}")
                 print(f"  Command: {job.command}")
                 print()
-
 
 class CronNotificationWorker:
     def __init__(self, env_path: str = ".env"):
@@ -194,52 +185,58 @@ class CronNotificationWorker:
         """
         # Initialize components
         load_dotenv(dotenv_path=env_path)
-        self.notification_manager = NotificationDatabaseManager()
+        self.notification_manager = NotificationDatabaseManager("./db/superior-agents.db")
         self.scraper_manager = ScraperManager(self.notification_manager)
-
-        # Initialize vault service for credentials
-        self.vault = VaultService()
-        self.secrets = self.vault.get_all_secrets()
-
+        
     @staticmethod
     def setup_cron_jobs(notification_dir: str) -> None:
-        """Setup cron jobs for all scrapers."""
+        """
+        Setup cron jobs for all scrapers.
+
+        Args:
+            notification_dir (str): Directory containing notification service files
+        """
         try:
             # Load environment variables
             env_path = os.path.join(notification_dir, ".env")
             load_dotenv(env_path)
-
+            
             # Get intervals from environment
             intervals = {
                 "twitter": int(os.getenv("TWITTER_SCRAPING_INTERVAL", "60")),
                 "coingecko": int(os.getenv("COINGECKO_SCRAPING_INTERVAL", "60")),
                 "cmc": int(os.getenv("CMC_SCRAPING_INTERVAL", "60")),
                 "reddit": int(os.getenv("REDDIT_SCRAPING_INTERVAL", "60")),
-                "rss": int(os.getenv("RSS_SCRAPING_INTERVAL", "60")),
+                "rss": int(os.getenv("RSS_SCRAPING_INTERVAL", "60"))
             }
-
+            
             # Setup cron jobs
             cron_manager = CronManager(notification_dir)
             cron_manager.setup_jobs(intervals)
-
+            
             logger.info("Cron jobs setup successfully")
             logger.info("Current cron jobs:")
             cron_manager.list_jobs()
-
+            
         except Exception as e:
             logger.error(f"Error setting up cron jobs: {str(e)}")
             raise
-
+            
     async def initialize_scrapers(self):
-        """Initialize all scrapers with appropriate credentials."""
+        """
+        Initialize all scrapers with appropriate credentials.
+        
+        Initializes different types of scrapers (Twitter, CoinGecko, CoinMarketCap, Reddit, RSS)
+        based on environment configuration and available credentials.
+        """
         try:
             # Get the specific scraper to run from environment variable
             target_scraper = os.getenv("SCRAPER", "all").lower()
             logger.info(f"Initializing scraper(s): {target_scraper}")
-
+            
             # Get bot username from environment
             bot_username = os.getenv("TWITTER_BOT_USERNAME", "Superior_Agents")
-
+            
             # Initialize Twitter scrapers if requested
             if target_scraper in ["all", "twitter"]:
                 twitter_creds = {
@@ -247,24 +244,18 @@ class CronNotificationWorker:
                     "api_secret": os.getenv("TWITTER_API_SECRET"),
                     "access_token": os.getenv("TWITTER_ACCESS_TOKEN"),
                     "access_token_secret": os.getenv("TWITTER_ACCESS_TOKEN_SECRET"),
-                    "bot_username": bot_username,
+                    "bot_username": bot_username
                 }
 
                 if all(twitter_creds.values()):
-                    mentions_scraper = TwitterMentionsScraper(
-                        bot_username=twitter_creds["bot_username"]
-                    )
-                    feed_scraper = TwitterFeedScraper(
-                        bot_username=twitter_creds["bot_username"]
-                    )
+                    mentions_scraper = TwitterMentionsScraper(bot_username=twitter_creds["bot_username"])
+                    feed_scraper = TwitterFeedScraper(bot_username=twitter_creds["bot_username"])
                     self.scraper_manager.add_scraper(mentions_scraper)
                     self.scraper_manager.add_scraper(feed_scraper)
                     logger.info("Twitter scrapers initialized")
                 else:
-                    logger.warning(
-                        "Twitter credentials not complete, skipping Twitter scrapers"
-                    )
-
+                    logger.warning("Twitter credentials not complete, skipping Twitter scrapers")
+            
             # Initialize CoinGecko scraper if requested
             if target_scraper in ["all", "coingecko"]:
                 tracked_currencies = [
@@ -275,31 +266,29 @@ class CronNotificationWorker:
                     "cardano",
                     "solana",
                     "polkadot",
-                    "dogecoin",
+                    "dogecoin"
                 ]
                 coingecko_scraper = CoinGeckoScraper(
                     tracked_currencies=tracked_currencies,
-                    price_change_threshold=float(
-                        os.getenv("PRICE_CHANGE_THRESHOLD", "5.0")
-                    ),
-                    bot_username="",
+                    price_change_threshold=float(os.getenv("PRICE_CHANGE_THRESHOLD", "5.0")),
+                    bot_username=""
                 )
                 self.scraper_manager.add_scraper(coingecko_scraper)
                 logger.info("CoinGecko scraper initialized")
-
+            
             # Initialize CoinMarketCap scraper if requested
             if target_scraper in ["all", "coinmarketcap"]:
                 cmc_scraper = CoinMarketCapScraper(bot_username="")
                 self.scraper_manager.add_scraper(cmc_scraper)
                 logger.info("CoinMarketCap scraper initialized")
-
+            
             # Initialize Reddit scraper if requested
             if target_scraper in ["all", "reddit"]:
                 reddit_creds = {
                     "client_id": os.getenv("REDDIT_CLIENT_ID"),
-                    "client_secret": os.getenv("REDDIT_CLIENT_SECRET"),
+                    "client_secret": os.getenv("REDDIT_CLIENT_SECRET")
                 }
-
+                
                 if all(reddit_creds.values()):
                     reddit_scraper = RedditScraper(
                         client_id=reddit_creds["client_id"],
@@ -309,17 +298,15 @@ class CronNotificationWorker:
                             "cryptocurrency",
                             "bitcoin",
                             "ethereum",
-                            "CryptoMarkets",
+                            "CryptoMarkets"
                         ],
-                        bot_username="",
+                        bot_username=""
                     )
                     self.scraper_manager.add_scraper(reddit_scraper)
                     logger.info("Reddit scraper initialized")
                 else:
-                    logger.warning(
-                        "Reddit credentials not complete, skipping Reddit scraper"
-                    )
-
+                    logger.warning("Reddit credentials not complete, skipping Reddit scraper")
+            
             # Initialize RSS Feed scrapers if requested
             if target_scraper in ["all", "rss"]:
                 # Get topic filter from environment
@@ -402,21 +389,25 @@ class CronNotificationWorker:
                         )
                         self.scraper_manager.add_scraper(scraper)
                         logger.info(f"{target_topic.title()} RSS Feed scraper initialized")
-                    
         except Exception as e:
             logger.error(f"Error initializing scrapers: {str(e)}")
             raise
-
+            
     async def run_single_cycle(self):
-        """Run a single scraping cycle."""
+        """
+        Run a single scraping cycle.
+        
+        Initializes scrapers, runs the scraping cycle, and performs cleanup.
+        Handles any errors that occur during the cycle.
+        """
         try:
             logger.info("Initializing scrapers...")
             await self.initialize_scrapers()
-
+            
             logger.info("Starting scraping cycle...")
             await self.scraper_manager.run_scraping_cycle()
             logger.info("Scraping cycle completed successfully")
-
+            
         except Exception as e:
             logger.error(f"Error in scraping cycle: {str(e)}")
             raise
@@ -427,31 +418,26 @@ class CronNotificationWorker:
                 task.cancel()
             if tasks:
                 await asyncio.gather(*tasks, return_exceptions=True)
-
+            
             # Close notification manager
-            try:
-                await self.notification_manager.close()
-            except Exception as e:
-                logger.error(f"Error closing notification manager: {str(e)}")
-
+            # try:
+            #     await self.notification_manager.close()
+            # except Exception as e:
+            #     logger.error(f"Error closing notification manager: {str(e)}")
+            
             # Close scraper clients
             for scraper in self.scraper_manager.scrapers:
-                if hasattr(scraper, "client") and hasattr(scraper.client, "aclose"):
+                if hasattr(scraper, 'client') and hasattr(scraper.client, 'aclose'):
                     try:
                         await scraper.client.aclose()
                     except Exception as e:
-                        logger.error(
-                            f"Error closing client for {scraper.__class__.__name__}: {str(e)}"
-                        )
-
-                if hasattr(scraper, "close"):
+                        logger.error(f"Error closing client for {scraper.__class__.__name__}: {str(e)}")
+                        
+                if hasattr(scraper, 'close'):
                     try:
                         await scraper.close()
                     except Exception as e:
-                        logger.error(
-                            f"Error closing {scraper.__class__.__name__}: {str(e)}"
-                        )
-
+                        logger.error(f"Error closing {scraper.__class__.__name__}: {str(e)}")
 
 async def run_forever():
     """
@@ -460,7 +446,7 @@ async def run_forever():
     Continuously runs scraping cycles at specified intervals.
     Handles shutdown signals and performs cleanup.
     """
-    if not is_process_running():
+    if is_process_running():
         logger.error("Another instance is already running. Exiting.")
         return
 
@@ -487,21 +473,23 @@ async def run_forever():
             logger.info(f"Sleeping {interval} minutes")
             await asyncio.sleep(interval * 60)
     finally:
-        await worker.notification_manager.close()
-
+        print('finally')
+        # await worker.notification_manager.close()
 
 def main():
-    """Updated main with daemon as default"""
+    """
+    Main entry point for the cron worker.
+    
+    Supports two modes:
+    - Single run mode (--single-run): Run one scraping cycle and exit
+    - Daemon mode (default): Run continuously at specified intervals
+    """
     import argparse
-
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--single-run",
-        action="store_true",
-        help="Run one scraping cycle and exit (for testing)",
-    )
+    parser.add_argument("--single-run", action="store_true", 
+                       help="Run one scraping cycle and exit (for testing)")
     args = parser.parse_args()
-
+    
     try:
         if args.single_run:
             # Single run mode for testing
@@ -512,13 +500,12 @@ def main():
             # Default to daemon mode
             logger.info("Starting in daemon mode")
             asyncio.run(run_forever())
-
+            
     except KeyboardInterrupt:
         logger.info("Shutdown requested")
         sys.exit(0)
 
     print("Main function completed")
-
 
 if __name__ == "__main__":
     # If INSTALL_CRON environment variable is set, setup cron jobs

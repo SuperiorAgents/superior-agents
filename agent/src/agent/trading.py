@@ -2,6 +2,7 @@ import re
 from textwrap import dedent
 from typing import Dict, List, Set, Tuple
 from datetime import datetime, timezone, timedelta
+from src.db import DBInterface
 
 from result import Err, Ok, Result
 
@@ -835,7 +836,7 @@ class TradingAgent:
         self,
         agent_id: str,
         rag: RAGClient,
-        db: APIDB,
+        db: DBInterface,
         sensor: TradingSensor,
         genner: Genner,
         container_manager: ContainerManager,
@@ -845,13 +846,13 @@ class TradingAgent:
         Initialize the trading agent with all required components.
 
         Args:
-                agent_id (str): Unique identifier for this agent
-                rag (RAGClient): Client for retrieval-augmented generation
-                db (APIDB): Database client for storing and retrieving data
-                sensor (TradingSensor): Sensor for monitoring trading-related metrics
-                genner (Genner): Generator for creating code and strategies
-                container_manager (ContainerManager): Manager for code execution in containers
-                prompt_generator (TradingPromptGenerator): Generator for creating prompts
+            agent_id (str): Unique identifier for this agent
+            rag (RAGClient): Client for retrieval-augmented generation
+            db (DBInterface): Database client for storing and retrieving data
+            sensor (TradingSensor): Sensor for monitoring trading-related metrics
+            genner (Genner): Generator for creating code and strategies
+            container_manager (ContainerManager): Manager for code execution in containers
+            prompt_generator (TradingPromptGenerator): Generator for creating prompts
         """
         self.agent_id = agent_id
         self.db = db
@@ -873,7 +874,7 @@ class TradingAgent:
 
     def prepare_system(
         self, role: str, time: str, metric_name: str, metric_state: str, network: str
-    ):
+    ) -> ChatHistory:
         """
         Prepare the system prompt for the agent.
 
@@ -881,28 +882,33 @@ class TradingAgent:
         for the agent's operation, including its role, time context, and metrics.
 
         Args:
-                role (str): The role of the agent (e.g., "trader")
-                time (str): Current time information
-                metric_name (str): Name of the metric to track
-                metric_state (str): Current state of the metric
-                network (str): Blockchain network to operate on
+            role (str): The role of the agent (e.g., "trader")
+            time (str): Current time information
+            metric_name (str): Name of the metric to track
+            metric_state (str): Current state of the metric
+            network (str): Blockchain network to operate on
 
         Returns:
-                ChatHistory: Chat history with the system prompt
+            ChatHistory: Chat history with the system prompt
         """
-        system_prompt = self.prompt_generator.generate_system_prompt(
-            role=role,
-            time=time,
-            metric_name=metric_name,
-            network=network,
-            metric_state=metric_state,
+        ctx_ch = ChatHistory(
+            Message(
+                role="system",
+                content=self.prompt_generator.generate_system_prompt(
+                    role=role,
+                    time=time,
+                    metric_name=metric_name,
+                    network=network,
+                    metric_state=metric_state,
+                ),
+            )
         )
-        self.chat_history = ChatHistory([Message(role="system", content=system_prompt)])
-        return self.chat_history
+
+        return ctx_ch
 
     def gen_research_code_on_first(
         self, apis: List[str], network: str
-    ) -> Result[Tuple[str, ChatHistory], str]:
+    ) -> Tuple[Result[str, str], ChatHistory]:
         """
         Generate research code for the first time.
 
@@ -910,11 +916,11 @@ class TradingAgent:
         using only the available APIs.
 
         Args:
-                apis (List[str]): List of APIs available to the agent
+            apis (List[str]): List of APIs available to the agent
 
         Returns:
-                Result[Tuple[str, ChatHistory], str]: Success with code and chat history,
-                        or error message
+            Result[Tuple[str, ChatHistory], str]: Success with code and chat history,
+                or error message
         """
         ctx_ch = ChatHistory(
             Message(
@@ -927,14 +933,17 @@ class TradingAgent:
         )
 
         gen_result = self.genner.generate_code(self.chat_history + ctx_ch)
-
-        if err := gen_result.err():
-            return Err(f"TradingAgent.gen_research_code_on_first, err: \n{err}")
+        if gen_result.is_err():
+            # Return error along with chat history
+            return Err(f"TradingAgent.gen_research_code_on_first, err: \n{gen_result.unwrap_err()}"), ctx_ch
 
         processed_codes, raw_response = gen_result.unwrap()
         ctx_ch = ctx_ch.append(Message(role="assistant", content=raw_response))
 
-        return Ok((processed_codes[0], ctx_ch))
+        if processed_codes is None or not processed_codes:
+            return Err("TradingAgent.gen_research_code_on_first: No code could be extracted."), ctx_ch
+
+        return Ok(processed_codes[0]), ctx_ch
 
     def gen_research_code(
         self,
@@ -944,7 +953,7 @@ class TradingAgent:
         rag_summary: str,
         before_metric_state: str,
         after_metric_state: str,
-    ):
+    ) -> Tuple[Result[str, str], ChatHistory]:
         """
         Generate research code with context.
 
@@ -952,16 +961,16 @@ class TradingAgent:
         including notifications, previous strategies, and RAG results.
 
         Args:
-                notifications_str (str): String containing recent notifications
-                apis (List[str]): List of APIs available to the agent
-                prev_strategy (str): Description of the previous strategy
-                rag_summary (str): Summary from retrieval-augmented generation
-                before_metric_state (str): State of the metric before strategy execution
-                after_metric_state (str): State of the metric after strategy execution
+            notifications_str (str): String containing recent notifications
+            apis (List[str]): List of APIs available to the agent
+            prev_strategy (str): Description of the previous strategy
+            rag_summary (str): Summary from retrieval-augmented generation
+            before_metric_state (str): State of the metric before strategy execution
+            after_metric_state (str): State of the metric after strategy execution
 
         Returns:
-                Result[Tuple[str, ChatHistory], str]: Success with code and chat history,
-                        or error message
+            Result[Tuple[str, ChatHistory], str]: Success with code and chat history,
+                or error message
         """
         ctx_ch = ChatHistory(
             Message(
@@ -978,21 +987,24 @@ class TradingAgent:
         )
 
         gen_result = self.genner.generate_code(self.chat_history + ctx_ch)
-
-        if err := gen_result.err():
-            return Err(f"TradingAgent.gen_research_code, err: \n{err}")
+        if gen_result.is_err():
+            # Return error along with chat history
+            return Err(f"TradingAgent.gen_research_code, err: \n{gen_result.unwrap_err()}"), ctx_ch
 
         processed_codes, raw_response = gen_result.unwrap()
         ctx_ch = ctx_ch.append(Message(role="assistant", content=raw_response))
 
-        return Ok((processed_codes[0], ctx_ch))
+        if processed_codes is None or not processed_codes:
+            return Err("TradingAgent.gen_research_code: No code could be extracted."), ctx_ch
+
+        return Ok(processed_codes[0]), ctx_ch
 
     def gen_strategy(
         self,
         notifications_str: str,
         research_output_str: str,
         network: str,
-    ) -> Result[Tuple[str, ChatHistory], str]:
+    ) -> Tuple[Result[str, str], ChatHistory]:
         """
         Generate a trading strategy.
 
@@ -1000,13 +1012,13 @@ class TradingAgent:
         and research output.
 
         Args:
-                notifications_str (str): String containing recent notifications
-                research_output_str (str): Output from the research code
-                network (str): Blockchain network to operate on
+            notifications_str (str): String containing recent notifications
+            research_output_str (str): Output from the research code
+            network (str): Blockchain network to operate on
 
         Returns:
-                Result[Tuple[str, ChatHistory], str]: Success with strategy and chat history,
-                        or error message
+            Result[Tuple[str, ChatHistory], str]: Success with strategy and chat history,
+                or error message
         """
         ctx_ch = ChatHistory(
             Message(
@@ -1022,16 +1034,16 @@ class TradingAgent:
         gen_result = self.genner.ch_completion(self.chat_history + ctx_ch)
 
         if err := gen_result.err():
-            return Err(f"TradingAgent.gen_strategy, err: \n{err}")
+            return Err(f"TradingAgent.gen_strategy, err: \n{err}"), ctx_ch
 
         response = gen_result.unwrap()
         ctx_ch = ctx_ch.append(Message(role="assistant", content=response))
 
-        return Ok((response, ctx_ch))
+        return Ok(response), ctx_ch
 
     def gen_account_research_code(
-        self,
-    ) -> Result[Tuple[str, ChatHistory], str]:
+        self, strategy_output: str
+    ) -> Tuple[Result[str, str], ChatHistory]:
         """
         Generate code for researching token addresses.
 
@@ -1039,8 +1051,8 @@ class TradingAgent:
         using the CoinGecko API.
 
         Returns:
-                Result[Tuple[str, ChatHistory], str]: Success with code and chat history,
-                        or error message
+            Result[Tuple[str, ChatHistory], str]: Success with code and chat history,
+                or error message
         """
         ctx_ch = ChatHistory(
             Message(
@@ -1050,14 +1062,17 @@ class TradingAgent:
         )
 
         gen_result = self.genner.generate_code(self.chat_history + ctx_ch)
-
-        if err := gen_result.err():
-            return Err(f"TradingAgent.gen_account_research_code, err: \n{err}")
+        if gen_result.is_err():
+            # Return error along with chat history
+            return Err(f"TradingAgent.gen_account_research_code, err: \n{gen_result.unwrap_err()}"), ctx_ch
 
         processed_codes, raw_response = gen_result.unwrap()
         ctx_ch = ctx_ch.append(Message(role="assistant", content=raw_response))
 
-        return Ok((processed_codes[0], ctx_ch))
+        if processed_codes is None or not processed_codes:
+            return Err("TradingAgent.gen_account_research_code: No code could be extracted."), ctx_ch
+
+        return Ok(processed_codes[0]), ctx_ch
 
     def gen_trading_code(
         self,
@@ -1068,7 +1083,7 @@ class TradingAgent:
         agent_id: str,
         txn_service_url: str,
         session_id: str,
-    ) -> Result[Tuple[str, ChatHistory], str]:
+    ) -> Tuple[Result[str, str], ChatHistory]:
         """
         Generate code for implementing a trading strategy.
 
@@ -1076,17 +1091,17 @@ class TradingAgent:
         including token addresses and trading instruments.
 
         Args:
-                strategy_output (str): Output from the strategy formulation
-                address_research (str): Results from token address research
-                apis (List[str]): List of APIs available to the agent
-                trading_instruments (List[str]): List of available trading instruments
-                agent_id (str): ID of the agent
-                txn_service_url (str): URL of the transaction service
-                session_id (str): ID of the current session
+            strategy_output (str): Output from the strategy formulation
+            address_research (str): Results from token address research
+            apis (List[str]): List of APIs available to the agent
+            trading_instruments (List[str]): List of available trading instruments
+            agent_id (str): ID of the agent
+            txn_service_url (str): URL of the transaction service
+            session_id (str): ID of the current session
 
         Returns:
-                Result[Tuple[str, ChatHistory], str]: Success with code and chat history,
-                        or error message
+            Result[Tuple[str, ChatHistory], str]: Success with code and chat history,
+                or error message
         """
         ctx_ch = ChatHistory(
             Message(
@@ -1104,69 +1119,21 @@ class TradingAgent:
         )
 
         gen_result = self.genner.generate_code(self.chat_history + ctx_ch)
-
-        if err := gen_result.err():
-            return Err(f"TradingAgent.gen_trading_code, err: \n{err}")
-
-        processed_codes, raw_response = gen_result.unwrap()
-        ctx_ch = ctx_ch.append(Message(role="assistant", content=raw_response))
-
-        return Ok((processed_codes[0], ctx_ch))
-
-    def gen_trading_non_address_code(
-        self,
-        strategy_output: str,
-        apis: List[str],
-        trading_instruments: List[str],
-        agent_id: str,
-        txn_service_url: str,
-        session_id: str,
-    ) -> Result[Tuple[str, ChatHistory], str]:
-        """
-        Generate trading code without address research.
-
-        This method creates code that will implement a trading strategy
-        without requiring token address research.
-
-        Args:
-                strategy_output (str): Output from the strategy formulation
-                apis (List[str]): List of APIs available to the agent
-                trading_instruments (List[str]): List of available trading instruments
-                agent_id (str): ID of the agent
-                txn_service_url (str): URL of the transaction service
-                session_id (str): ID of the current session
-
-        Returns:
-                Result[Tuple[str, ChatHistory], str]: Success with code and chat history,
-                        or error message
-        """
-        ctx_ch = ChatHistory(
-            Message(
-                role="user",
-                content=self.prompt_generator.generate_trading_code_non_address_prompt(
-                    strategy_output=strategy_output,
-                    apis=apis,
-                    trading_instruments=trading_instruments,
-                    agent_id=agent_id,
-                    txn_service_url=txn_service_url,
-                    session_id=session_id,
-                ),
-            )
-        )
-
-        gen_result = self.genner.generate_code(self.chat_history + ctx_ch)
-
-        if err := gen_result.err():
-            return Err(f"TradingAgent.gen_trading_non_address_code, err: \n{err}")
+        if gen_result.is_err():
+            # Return error along with chat history
+            return Err(f"TradingAgent.gen_trading_code, err: \n{gen_result.unwrap_err()}"), ctx_ch
 
         processed_codes, raw_response = gen_result.unwrap()
         ctx_ch = ctx_ch.append(Message(role="assistant", content=raw_response))
 
-        return Ok((processed_codes[0], ctx_ch))
+        if processed_codes is None or not processed_codes:
+            return Err("TradingAgent.gen_trading_code: No code could be extracted."), ctx_ch
+
+        return Ok(processed_codes[0]), ctx_ch
 
     def gen_better_code(
-        self, prev_code: str, errors: str
-    ) -> Result[Tuple[str, ChatHistory], str]:
+        self, research_code: str, errors: str
+    ) -> Tuple[Result[str, str], ChatHistory]:
         """
         Generate improved code after errors.
 
@@ -1174,26 +1141,32 @@ class TradingAgent:
         using the original code and error messages to create a fixed version.
 
         Args:
-                prev_code (str): The code that encountered errors
-                errors (str): Error messages from code execution
+            prev_code (str): The code that encountered errors
+            errors (str): Error messages from code execution
 
         Returns:
-                Result[Tuple[str, ChatHistory], str]: Success with improved code and chat history,
-                        or error message
+            Result[Tuple[str, ChatHistory], str]: Success with improved code and chat history,
+                or error message
         """
         ctx_ch = ChatHistory(
             Message(
                 role="user",
-                content=self.prompt_generator.regen_code(prev_code, errors),
+                content=self.prompt_generator.regen_code(
+                    research_code,
+                    errors,
+                ),
             )
         )
 
         gen_result = self.genner.generate_code(self.chat_history + ctx_ch)
-
-        if err := gen_result.err():
-            return Err(f"TradingAgent.gen_better_code, err: \n{err}")
+        if gen_result.is_err():
+            # Return error along with chat history
+            return Err(f"TradingAgent.gen_better_code, err: \n{gen_result.unwrap_err()}"), ctx_ch
 
         processed_codes, raw_response = gen_result.unwrap()
         ctx_ch = ctx_ch.append(Message(role="assistant", content=raw_response))
 
-        return Ok((processed_codes[0], ctx_ch))
+        if processed_codes is None or not processed_codes:
+            return Err("TradingAgent.gen_better_code: No code could be extracted."), ctx_ch
+
+        return Ok(processed_codes[0]), ctx_ch

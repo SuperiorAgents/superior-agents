@@ -1,0 +1,13 @@
+services:
+  meta-swap-api:
+    image: superioragents/meta-swap-api
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${TRADE_API_PORT:-9009}:${TRADE_API_PORT:-9009}"
+
+    env_file:
+      - .env
+
+    restart: unless-stopped

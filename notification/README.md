@@ -128,7 +128,6 @@ LOG_LEVEL=INFO
 - `models.py`: Data models for notifications and responses
 - `scrapers.py`: Implementation of different scrapers
 - `twitter_service.py`: Twitter API integration
-- `vault_service.py`: Secure credential management
 - `install_cron.sh`: Script to install cron jobs
 - `requirements.txt`: Python package dependencies
 
@@ -208,10 +207,6 @@ crontab -l
   - Automatic retries
   - Error handling
 
-- **VaultService**: Manages secure access to credentials
-  - Environment variable management
-  - Secure secret storage
-
 ## Maintenance
 
 ### Log Rotation
@@ -241,7 +236,6 @@ Common issues and solutions:
 2. **API Authentication Errors**:
 
    - Verify API keys in `.env` which must be in the notification directory
-   - Check vault service configuration
 
 3. **Rate Limiting**:
 

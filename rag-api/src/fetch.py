@@ -1,3 +1,4 @@
+from glob import glob
 import os
 from typing import List, Tuple
 
@@ -50,12 +51,13 @@ def get_context_from_kb(
 	return result_docs
 
 
-def get_context_from_kb_v2(vectorstore: FAISS, query: str, num_chunks: int):
+def get_context_from_kb_with_top_k(vectorstore: FAISS, query: str, num_chunks: int):
 	# Use similarity_search_with_score without a threshold
 	# This will return the top k results regardless of their score
 	results_with_scores = vectorstore.similarity_search_with_score(query, k=num_chunks)
 
-	logger.info(f"Results with scores: {results_with_scores}")
+	logger.info(f"`len(results_with_scores)`: {len(results_with_scores)}")
+
 	return results_with_scores
 
 
@@ -110,4 +112,101 @@ def get_data_raw_v2(
 	)
 
 	# Always get top_k results
-	return get_context_from_kb_v2(vectorstore, query, top_k)
+	return get_context_from_kb_with_top_k(vectorstore, query, top_k)
+
+
+def get_data_raw_v3(
+	query: str,
+	agent_id: str,
+	top_k: int,
+) -> List[Tuple[Document, float]]:
+	"""
+	Backward compatible KBs getter that let's us search multiple KBs based on only the `agent_id`.
+	This should scan the `pkl/` folder and only get any KBs file that has that `agent_id`, not caring about the previously added `session_id`.
+	"""
+	pattern = f"pkl/{agent_id}*.pkl"
+	matching_files = glob(pattern)
+
+	if not matching_files:
+		logger.error(
+			"No vector database has exists for {agent_id} yet. Please insert atleast one strategy"
+		)
+		return []
+
+	logger.info(f"`len(matching_files)` = {len(matching_files)}")
+
+	base_name = os.path.basename(matching_files[0]).replace(".pkl", "")
+	logger.info(f"Initializing vectorstore with `base_name` = {base_name}")
+
+	vectorstore = FAISS.load_local(
+		"pkl/",
+		get_embeddings(),
+		base_name,
+		allow_dangerous_deserialization=True,
+		distance_strategy="COSINE",
+	)
+
+	for file_path in matching_files[1:]:
+		base_name = os.path.basename(file_path).replace(".pkl", "")
+		logger.info(
+			f"Merging the initialized vectorstore with `base_name` = {base_name}"
+		)
+
+		additional_index = FAISS.load_local(
+			"pkl/",
+			get_embeddings(),
+			base_name,
+			allow_dangerous_deserialization=True,
+			distance_strategy="COSINE",
+		)
+		vectorstore.merge_from(additional_index)
+
+	# Always get top_k results
+	return get_context_from_kb_with_top_k(vectorstore, query, top_k)
+
+def get_data_raw_v4(
+	notification_query: str,
+	agent_id: str,
+	top_k: int,
+) -> List[Tuple[Document, float]]:
+	"""
+	Backward compatible KBs getter that let's us search multiple KBs based on only the `agent_id`.
+	This should scan the `pkl/` folder and only get any KBs file that has that `agent_id`, not caring about the previously added `session_id`.
+	"""
+	pattern = f"pkl/v4/{agent_id}*.pkl"
+	matching_files = glob(pattern)
+
+	if not matching_files:
+		logger.error(
+			f"No vector database has exists for {agent_id} yet. Please insert atleast one strategy"
+		)
+		return []
+
+	base_name = os.path.basename(matching_files[0]).replace(".pkl", "")
+	logger.info(f"Initializing vectorstore with `base_name` = {base_name}")
+
+	vectorstore = FAISS.load_local(
+		"pkl/v4/",
+		get_embeddings(),
+		base_name,
+		allow_dangerous_deserialization=True,
+		distance_strategy="COSINE",
+	)
+
+	for file_path in matching_files[1:]:
+		base_name = os.path.basename(file_path).replace(".pkl", "")
+		logger.info(
+			f"Merging the initialized vectorstore with `base_name` = {base_name}"
+		)
+
+		additional_index = FAISS.load_local(
+			"pkl/v4/",
+			get_embeddings(),
+			base_name,
+			allow_dangerous_deserialization=True,
+			distance_strategy="COSINE",
+		)
+		vectorstore.merge_from(additional_index)
+
+	# Always get top_k results
+	return get_context_from_kb_with_top_k(vectorstore, notification_query, top_k)

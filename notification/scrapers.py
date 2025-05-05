@@ -1,25 +1,24 @@
 import asyncio
 import logging
+from abc import ABC, abstractmethod
+from datetime import datetime
 import json
+from typing import Dict, List, Optional, Set
 import os
 import re
-
+import requests
 import tweepy
 import praw
 import httpx
 import feedparser
-
-from abc         import ABC, abstractmethod
-from datetime    import datetime
-from typing      import Dict, List, Optional, Set
-from bs4         import BeautifulSoup
+from bs4 import BeautifulSoup
 from pycoingecko import CoinGeckoAPI
-from pydantic    import BaseModel
-from dotenv      import load_dotenv
-from dateutil    import parser
+from pydantic import BaseModel
+from dotenv import load_dotenv
+from dateutil import parser
 
-from models                        import NotificationCreate
-from twitter_service               import TwitterService, Tweet
+from models import NotificationCreate
+from twitter_service import TwitterService, Tweet
 from notification_database_manager import NotificationDatabaseManager
 
 # Configure logging
@@ -27,6 +26,16 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class ScrapedNotification(BaseModel):
+    """
+    Model representing a notification scraped from a source.
+
+    Attributes:
+        source (str): Source of the notification (e.g., 'twitter_mentions', 'rss')
+        short_desc (str): Brief description of the notification
+        long_desc (str): Detailed description of the notification
+        notification_date (str): Date of the notification in ISO format
+        relative_to_scraper_id (Optional[str]): ID relating to the source (e.g., tweet ID)
+    """
     source: str
     short_desc: str
     long_desc: str
@@ -35,6 +44,12 @@ class ScrapedNotification(BaseModel):
 
 class BaseScraper(ABC):
     def __init__(self, bot_username: str = ""):
+        """
+        Initialize base scraper.
+
+        Args:
+            bot_username (str): Username of the bot using this scraper
+        """
         self.last_check_time: Optional[datetime] = None
         self.notification_manager = None  # Will be set by ScraperManager
         self.bot_username = bot_username
@@ -51,15 +66,35 @@ class BaseScraper(ABC):
 
 class TwitterMentionsScraper(BaseScraper):
     def __init__(self, bot_username: str):
+        """
+        Initialize Twitter mentions scraper.
+
+        Args:
+            bot_username (str): The username of the Twitter bot to monitor mentions for
+        """
         super().__init__(bot_username=bot_username)
         self.twitter_service = TwitterService(bot_username=bot_username)
         self.last_mention_id: Optional[str] = None
     
     def get_source_prefix(self) -> str:
+        """
+        Get the prefix used for the source field.
+
+        Returns:
+            str: Source prefix for Twitter mentions ('twitter_mentions')
+        """
         return "twitter_mentions"
         
     def _format_tweet_content(self, tweet: Tweet) -> str:
-        """Format tweet content with additional context."""
+        """
+        Format tweet content with additional context.
+
+        Args:
+            tweet (Tweet): Tweet object to format
+
+        Returns:
+            str: Formatted tweet content including text, mentions, hashtags, and URLs
+        """
         content_parts = []
         
         # Add main tweet content
@@ -96,15 +131,37 @@ class TwitterMentionsScraper(BaseScraper):
         return "\n".join(content_parts)
         
     async def scrape(self) -> List[ScrapedNotification]:
+        """
+        Scrape Twitter mentions and convert them to notifications.
+
+        Returns:
+            List[ScrapedNotification]: List of notifications created from mentions
+                Each notification contains:
+                - source: 'twitter_mentions'
+                - short_desc: Brief description of the mention
+                - long_desc: Full tweet content
+                - notification_date: Tweet creation date
+                - relative_to_scraper_id: Tweet ID
+
+        Raises:
+            Exception: If there's an error during scraping
+        """
         scraped_data = []
         try:
-            mentions = self.twitter_service.get_mentions(since_id=self.last_mention_id)
-            
+            try:
+                mentions = self.twitter_service.get_mentions(since_id=self.last_mention_id)
+            except tweepy.errors.TooManyRequests:
+                logger.warning("Twitter rate limit reached, skipping mentions scraping")
+                return []  # Return empty list to skip this scraper
+            except Exception as e:
+                logger.error(f"Error getting Twitter mentions: {str(e)}")
+                return []
+
+            # Process mentions if successful
             if mentions:
-                self.last_mention_id = mentions[0].id  # Update last seen mention ID
+                self.last_mention_id = mentions[0].id
                 
             for tweet in mentions:
-                # Skip if we already have this tweet
                 if await self.check_notification_exists(tweet.id):
                     continue
                     
@@ -123,15 +180,35 @@ class TwitterMentionsScraper(BaseScraper):
 
 class TwitterFeedScraper(BaseScraper):
     def __init__(self, bot_username: str):
+        """
+        Initialize Twitter feed scraper.
+
+        Args:
+            bot_username (str): The username of the Twitter bot whose feed to monitor
+        """
         super().__init__(bot_username=bot_username)
         self.twitter_service = TwitterService(bot_username=bot_username)
         self.last_tweet_id: Optional[str] = None
     
     def get_source_prefix(self) -> str:
+        """
+        Get the prefix used for the source field.
+
+        Returns:
+            str: Source prefix for Twitter feed ('twitter_feed')
+        """
         return "twitter_feed"
         
     def _format_tweet_content(self, tweet: Tweet) -> str:
-        """Format tweet content with additional context."""
+        """
+        Format tweet content with additional context.
+
+        Args:
+            tweet (Tweet): Tweet object to format
+
+        Returns:
+            str: Formatted tweet content including text, mentions, hashtags, and URLs
+        """
         content_parts = []
         # Add main tweet content
         content_parts.append(f"Tweet: {tweet.text}")
@@ -165,23 +242,43 @@ class TwitterFeedScraper(BaseScraper):
         return "\n".join(content_parts)
         
     async def scrape(self) -> List[ScrapedNotification]:
+        """
+        Scrape Twitter feed and convert tweets to notifications.
+
+        Returns:
+            List[ScrapedNotification]: List of notifications created from tweets
+                Each notification contains:
+                - source: 'twitter_feed'
+                - short_desc: Brief description of the tweet
+                - long_desc: Full tweet content
+                - notification_date: Tweet creation date
+                - relative_to_scraper_id: Tweet ID
+
+        Raises:
+            Exception: If there's an error during scraping
+        """
         scraped_data = []
         try:
-            tweets = self.twitter_service.get_own_timeline(count=10, since_id=self.last_tweet_id)
-            
+            try:
+                tweets = self.twitter_service.get_own_timeline(count=10, since_id=self.last_tweet_id)
+            except tweepy.errors.TooManyRequests:
+                logger.warning("Twitter rate limit reached, skipping feed scraping") 
+                return []  # Return empty list to skip this scraper
+            except Exception as e:
+                logger.error(f"Error getting Twitter timeline: {str(e)}")
+                return []
+
             if tweets:
-                self.last_tweet_id = tweets[0].id  # Update last seen tweet ID
+                self.last_tweet_id = tweets[0].id
                 
+            # Process tweets only if successful
             for tweet in tweets:
-                # Skip if we already have this tweet
                 if await self.check_notification_exists(tweet.id):
                     continue
                     
-                # Extract mentioned users for short description
                 mentioned = [f"@{user}" for user in tweet.mentioned_users]
                 mentioned_str = f" replying to {', '.join(mentioned)}" if mentioned else ""
                 
-                # Create notification
                 scraped_data.append(ScrapedNotification(
                     source="twitter_feed",
                     short_desc=f"New tweet{mentioned_str}",
@@ -202,12 +299,18 @@ class CoinMarketCapScraper(BaseScraper):
         self.client = httpx.AsyncClient(follow_redirects=True)
     
     def get_source_prefix(self) -> str:
+        """
+        Get the prefix used for the source field.
+
+        Returns:
+            str: Source prefix for CoinMarketCap ('coinmarketcap')
+        """
         return "coinmarketcap"
         
     async def scrape(self) -> List[ScrapedNotification]:
         scraped_data = []
         try:
-            response = await self.client.get(self.rss_url)
+            response = requests.get(self.rss_url)
             response.raise_for_status()
             
             soup = BeautifulSoup(response.content, "xml")
@@ -279,14 +382,23 @@ class CoinGeckoScraper(BaseScraper):
         self.last_prices: Dict[str, float] = {}
         
     def get_source_prefix(self) -> str:
+        """
+        Get the prefix used for the source field.
+
+        Returns:
+            str: Source prefix for CoinGecko ('coingecko')
+        """
         return "coingecko"
         
     async def scrape(self) -> List[ScrapedNotification]:
         scraped_data = []
         try:
             for currency in self.tracked_currencies:
-                response = await self.client.get(
-                    "/simple/price",
+                base_url = "https://pro-api.coingecko.com/api/v3" if self.api_key else "https://api.coingecko.com/api/v3"
+                headers = {'x-cg-pro-api-key': self.api_key} if self.api_key else {}
+                response = requests.get(
+                    base_url + "/simple/price",
+                    headers=headers,
                     params={
                         'ids': currency,
                         'vs_currencies': 'usd',
@@ -328,6 +440,8 @@ class CoinGeckoScraper(BaseScraper):
                 
         except Exception as e:
             logger.error(f"Error scraping CoinGecko: {str(e)}")
+            import traceback
+            print(traceback.format_exc())
         
         return scraped_data
 
@@ -342,6 +456,12 @@ class RedditScraper(BaseScraper):
         self.subreddits = subreddits
     
     def get_source_prefix(self) -> str:
+        """
+        Get the prefix used for the source field.
+
+        Returns:
+            str: Source prefix for Reddit ('reddit')
+        """
         return "reddit"
     
     async def scrape(self) -> List[ScrapedNotification]:
@@ -404,7 +524,16 @@ class RSSFeedScraper(BaseScraper):
         return f"{self.news_type}_news"  # This will return e.g. "business_news"
     
     def _preprocess_feed(self, feed_content: str, feed_name: str) -> str:
-        """Preprocess the feed content to fix common XML issues before parsing."""
+        """
+        Preprocess RSS feed content before parsing.
+
+        Args:
+            feed_content (str): Raw feed content
+            feed_name (str): Name of the feed source
+
+        Returns:
+            str: Preprocessed feed content
+        """
         if feed_name == "bitcoin_magazine":
             # Fix the specific issue with mismatched tags in Bitcoin Magazine feed
             # The issue is likely with namespace declarations having extra spaces
@@ -422,7 +551,15 @@ class RSSFeedScraper(BaseScraper):
         return feed_content
     
     def _clean_html(self, html_content: str) -> str:
-        """Remove HTML tags from content."""
+        """
+        Clean HTML content by removing tags and formatting.
+
+        Args:
+            html_content (str): Raw HTML content
+
+        Returns:
+            str: Cleaned text content
+        """
         if not html_content:
             return ""
         try:
@@ -453,7 +590,16 @@ class RSSFeedScraper(BaseScraper):
             return html_content.strip() if isinstance(html_content, str) else str(html_content)
 
     def _format_entry_content(self, entry, feed_name: str) -> Dict[str, str]:
-        """Format RSS entry content with better error handling and content extraction."""
+        """
+        Format RSS feed entry content.
+
+        Args:
+            entry: Feed entry object
+            feed_name (str): Name of the feed source
+
+        Returns:
+            Dict[str, str]: Formatted entry with title and description
+        """
         try:
             # Extract title with fallback
             title = entry.get("title", "No title")
@@ -520,64 +666,8 @@ class RSSFeedScraper(BaseScraper):
                             feed_content = response.text
                     except httpx.HTTPStatusError as e:
                         if e.response.status_code == 403:
-                            logger.warning(f"Access forbidden (403) for {feed_name}. Trying alternative method...")
+                            logger.warning(f"Access forbidden (403) for {feed_name}.")
                             # For Bitcoin Magazine specifically, we can try an alternative feed URL or use feedparser directly
-                            if feed_name == "bitcoin_magazine":
-                                # Try using feedparser directly which might handle some sites better
-                                feed = feedparser.parse(feed_url)
-                                if not hasattr(feed, 'bozo_exception') or feed.entries:
-                                    logger.info(f"Successfully parsed {feed_name} using feedparser directly")
-                                    # Process entries and continue
-                                    for entry in feed.entries:
-                                        # Process entries as before
-                                        try:
-                                            # Use entry id or link as unique identifier
-                                            entry_id = entry.get("id", entry.get("link", ""))
-                                            
-                                            # Skip if no valid ID
-                                            if not entry_id:
-                                                continue
-                                            
-                                            # Skip if we've seen this entry before
-                                            if entry_id in self.last_entry_ids[feed_name]:
-                                                continue
-                                            
-                                            # Format the content
-                                            content = self._format_entry_content(entry, feed_name)
-                                            
-                                            # Parse and standardize the publication date
-                                            try:
-                                                if isinstance(content["pub_date"], str):
-                                                    dt = parser.parse(content["pub_date"])
-                                                    content["pub_date"] = dt.isoformat()
-                                            except Exception as date_error:
-                                                logger.warning(f"Error parsing date for {feed_name}: {date_error}")
-                                                content["pub_date"] = datetime.now().isoformat()
-                                            
-                                            # Create notification
-                                            notification = ScrapedNotification(
-                                                source=self.get_source_prefix(),
-                                                short_desc=content["short_desc"],
-                                                long_desc=content["long_desc"],
-                                                notification_date=content["pub_date"],
-                                                relative_to_scraper_id=entry_id
-                                            )
-                                            
-                                            # Add to scraped data
-                                            scraped_data.append(notification)
-                                            
-                                            # Add to seen entries
-                                            self.last_entry_ids[feed_name].add(entry_id)
-                                            
-                                        except Exception as entry_error:
-                                            logger.error(f"Error processing entry in feed {feed_name}: {str(entry_error)}")
-                                            continue
-                                    
-                                    # Skip the rest of the processing for this feed
-                                    continue
-                                else:
-                                    logger.error(f"Failed to parse {feed_name} using alternative method")
-                            
                             # If we get here, we couldn't access the feed
                             logger.error(f"Could not access feed {feed_name}: Access Forbidden (403)")
                             continue
@@ -661,6 +751,12 @@ class RSSFeedScraper(BaseScraper):
 
 class ScraperManager:
     def __init__(self, notification_manager: NotificationDatabaseManager):
+        """
+        Initialize scraper manager.
+
+        Args:
+            notification_manager (NotificationDatabaseManager): Manager for storing notifications
+        """
         self.notification_manager = notification_manager
         self.scrapers: List[BaseScraper] = []
         
@@ -670,7 +766,18 @@ class ScraperManager:
         self.scrapers.append(scraper)
     
     async def run_scraping_cycle(self):
-        """Run one cycle of scraping from all sources."""
+        """
+        Run one cycle of scraping from all sources.
+        
+        This method:
+        1. Iterates through all registered scrapers
+        2. Runs each scraper to collect notifications
+        3. Batches notifications for efficient storage
+        4. Falls back to individual notification creation if batch fails
+        
+        Raises:
+            Exception: If there's an error during the scraping cycle
+        """
         for scraper in self.scrapers:
             try:
                 scraped_items = await scraper.scrape()
@@ -714,6 +821,8 @@ class ScraperManager:
                                 )
                                 
                             except Exception as individual_error:
+                                import traceback
+                                logger.error(traceback.format_exc())
                                 logger.error(f"Error creating individual notification: {str(individual_error)}")
                 
             except Exception as e:
@@ -755,8 +864,8 @@ if __name__ == "__main__":
         
         async def test_rss():
             rss_feeds = {
-                # "bitcoin_magazine": "https://bitcoinmagazine.com/feed",
-                # "cointelegraph": "https://cointelegraph.com/rss",
+                "bitcoin_magazine": "https://bitcoinmagazine.com/feed",
+                "cointelegraph": "https://cointelegraph.com/rss",
                 "coindesk": "https://www.coindesk.com/arc/outboundfeeds/rss"
             }
             # Get bot username from environment (not used for RSS feeds, but included for consistency)

@@ -76,7 +76,7 @@ def start_marketing_agent(
     summarizer = get_summarizer(genner)
     previous_strategies = db.fetch_all_strategies(agent_id)
 
-    rag.save_result_batch(previous_strategies)
+    rag.save_result_batch_v4(previous_strategies)
 
     agent = MarketingAgent(
         agent_id=agent_id,
@@ -147,7 +147,7 @@ def start_trading_agent(
     summarizer = get_summarizer(genner)
     previous_strategies = db.fetch_all_strategies(agent_id)
 
-    rag.save_result_batch(previous_strategies)
+    rag.save_result_batch_v4(previous_strategies)
 
     agent = TradingAgent(
         agent_id=agent_id,
@@ -195,7 +195,7 @@ def run_cycle(
     prev_strat = agent.db.fetch_latest_strategy(agent.agent_id)
     if prev_strat is not None:
         logger.info(f"Previous strat is {prev_strat}")
-        agent.rag.save_result_batch([prev_strat])
+        agent.rag.save_result_batch_v4([prev_strat])
 
     notif_limit = 5 if fe_data is None else 2  # trading uses 5, marketing uses 2
     current_notif = agent.db.fetch_latest_notification_str_v2(
@@ -324,11 +324,13 @@ def extra_rag_questions(answer_rag, agent_type):
             resp = requests.get(rag_url + "/health")
             resp.raise_for_status()
             rag = RAGClient(
+                base_url='http://localhost:8080',
                 session_id='default_marketing' if agent_type == 'marketing' else 'default_trading',
                 agent_id='default_marketing' if agent_type == 'marketing' else 'default_trading',
             )
             logger.info(f'Successfully connected to the RAG service in PORT 8080')
         except Exception as e:
+            print(e)
             logger.error("RAG hasn't been setup properly. Falling back to Mock RAG API")
             rag = MockRAGClient(
                 session_id='default_marketing' if agent_type == 'marketing' else 'default_trading',
@@ -346,9 +348,24 @@ def extra_rag_questions(answer_rag, agent_type):
 
 def starter_prompt():
     choices_research_tools = ['Twitter', 'DuckDuckGo', 'CoinGecko']
+    choices_notifications = ["animals_news",
+			"business_news",
+			"crypto_news",
+			"entertainment_news",
+			"general_news",
+			"health_news",
+			"politics_news",
+			"science_news",
+			"sports_news",
+			"technology_news",
+			"twitter_feed",
+			"twitter_mentions",
+			"world_news_news"]
+    marketing_research_tools = ["DuckDuckGo"]
     questions = [
         inquirer.List('model', message="What LLM model agent will run ?", choices=[ 'Mock LLM', 'OpenAI (openrouter)','Gemini (openrouter)', 'QWQ (openrouter)','Claude'], default=['Gemini (openrouter)']),
         inquirer.Checkbox('research_tools',message="Which research tools do you want to use (use space to choose) ?",choices=[service for service in choices_research_tools]),
+        inquirer.Checkbox('notifications',message="Which notifications do you want to use (use space to choose) (optional) ?",choices=[service for service in choices_notifications]),
         inquirer.List(name='agent_type', message="Please choose agent type ?", choices=['trading', 'marketing'], default=['trading']),
         inquirer.List(name='rag', message="Have you setup the RAG API (rag-api folder) ?", choices=["No, I'm using Mock RAG for now", "Yes, i have setup the RAG"]),
     ]
@@ -360,13 +377,16 @@ def starter_prompt():
     
     sensor = extra_sensor_questions(answers['agent_type'])
 
-    os.environ['TXN_SERVICE_URL'] = 'http://localhost:9090'
+    os.environ['TXN_SERVICE_URL'] = 'http://localhost:9009'
     if answers['agent_type'] == 'marketing':
         fe_data = FE_DATA_MARKETING_DEFAULTS.copy()
     elif answers['agent_type'] == 'trading':
         fe_data = FE_DATA_TRADING_DEFAULTS.copy()
 
-    fe_data['research_tools'] = answers['research_tools']
+    if answers['agent_type'] == 'marketing':
+        fe_data['research_tools'] = [x for x in answers['research_tools'] if x in marketing_research_tools]
+    else:
+        fe_data['research_tools'] = answers['research_tools']
     fe_data['prompts'] = fetch_default_prompt(fe_data,answers['agent_type'])
     fe_data['model'] = model_name
     
@@ -397,7 +417,7 @@ def starter_prompt():
                 agent_id='default_marketing' if answers['agent_type'] == 'marketing' else 'default_trading', 
                 fe_data=fe_data,
                 genner=genner,
-                db=SQLiteDB(db_path="db/superior-agents.db"),
+                db=SQLiteDB(db_path="../db/superior-agents.db"),
                 rag=rag_client,
                 sensor=sensor
             )
@@ -408,7 +428,7 @@ def starter_prompt():
                 agent_id='default_marketing' if answers['agent_type'] == 'marketing' else 'default_trading', 
                 fe_data=fe_data,
                 genner=genner,
-                db=SQLiteDB(db_path="db/superior-agents.db"),
+                db=SQLiteDB(db_path="../db/superior-agents.db"),
                 rag=rag_client,
                 sensor=sensor
             )

@@ -162,30 +162,31 @@ class OAIGenner(Genner):
 					- str: Raw response from the model
 				Err(str): Error message if generation failed
 		"""
+		raw_response = ""
+
 		try:
 			completion_result = self.ch_completion(messages)
 
 			if err := completion_result.err():
-				return Err(
-					f"OllamaGenner.generate_code: completion_result.is_err(): \n{err}"
+				return Ok((None, raw_response)) if raw_response else Err(
+					f"OAIGenner.{self.config.name}.generate_code: completion_result.is_err(): \n{err}"
 				)
 
 			raw_response = completion_result.unwrap()
 			logger.error(f"Response: {raw_response}")
+
 			extract_code_result = self.extract_code(raw_response, blocks)
 
 			if err := extract_code_result.err():
-				return Err(
-					f"OAIGenner.{self.config.model}.generate_code: extract_code_result.is_err(): \n{err}"
-				)
+				return Ok((None, raw_response))
 
 			processed_code = extract_code_result.unwrap()
-		except Exception as e:
-			return Err(
-				f"OAIGenner.{self.config.model}.ch_completion: An unexpected error while generating occured: \n{e}"
-			)
+			return Ok((processed_code, raw_response))
 
-		return Ok((processed_code, raw_response))
+		except Exception as e:
+			return Ok((None, raw_response)) if raw_response else Err(
+				f"OAIGenner.{self.config.name}.generate_code: An unexpected error occurred: \n{e}"
+			)
 
 	def generate_list(
 		self, messages: ChatHistory, blocks: List[str] = [""]
