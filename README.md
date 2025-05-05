@@ -44,7 +44,6 @@ This project is a trading and marketing agent that interacts with various APIs t
 ## Documentation Site
 
 For a comprehensive guide to the Superior Agent Framework, please visit our [Documentation Site](https://superioragents.github.io/superioragents-docs/).
-Here’s a more polished and grammatically correct version of that section:
 
 ## Folder Structure
 
