@@ -29,7 +29,7 @@ services:
       context: ./meta-swap-api
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "9009:9009"
     networks:
       - app-network
     environment:
