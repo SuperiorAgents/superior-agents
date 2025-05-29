@@ -17,6 +17,9 @@ services:
     environment:
       - PYTHONPATH=/app
       - SQLITE_PATH=/app/db/superior-agents.db
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - TXN_SERVICE_URL=http://meta-swap-api:9009
+      - RAG_URL=http://rag-api:8080
     command: sleep infinity
     networks:
       - app-network
@@ -31,7 +34,23 @@ services:
       - app-network
     environment:
       - NODE_ENV=development
-    command: sleep infinity
+      - ETH_PRIVATE_KEY=${ETH_PRIVATE_KEY}
+      - ETH_RPC_URL=https://eth-protect.rpc.blxrbdn.com
+      - PORT=9009
+      - SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+
+  rag-api:
+    build:
+      context: ./rag-api
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    networks:
+      - app-network
+    environment:
+      - PORT=8080
+      - NODE_ENV=development
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     
 networks:
   app-network:

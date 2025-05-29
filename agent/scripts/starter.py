@@ -255,24 +255,24 @@ def extra_model_questions(answer_model):
 
     if 'Mock LLM'  in answer_model:
         logger.info("Notice: You are currently using a mock LLM. Responses are simulated for testing purposes.")
-    elif 'OpenAI' in answer_model and not os.getenv('OPENAI_API_KEY'):
-        question_openai_key = [
-            inquirer.Password('openai_api_key', message="Please enter the OpenAI API key")
-        ]
-        answers_openai_key = inquirer.prompt(question_openai_key)
-        os.environ['OPENAI_API_KEY'] = answers_openai_key['openai_api_key']
     elif 'openrouter' in answer_model and not os.getenv('OPENROUTER_API_KEY'):
         question_or_key = [
             inquirer.Password('or_api_key', message="Please enter the Openrouter API key")
         ]
         answers_or_key = inquirer.prompt(question_or_key)
         os.environ['OPENROUTER_API_KEY'] = answers_or_key['or_api_key']
+    elif 'OpenAI' == answer_model and not os.getenv('OPENAI_API_KEY'):
+        question_openai_key = [
+            inquirer.Password('openai_api_key', message="Please enter the OpenAI API key")
+        ]
+        answers_openai_key = inquirer.prompt(question_openai_key)
+        os.set['OPENAI_API_KEY'] = answers_openai_key['openai_api_key']
     elif 'Claude' in answer_model and not os.getenv('ANTHROPIC_API_KEY'):
         question_claude_key = [
             inquirer.Password('claude_api_key', message="Please enter the Claude API key")
         ]
         answers_claude_key = inquirer.prompt(question_claude_key)
-        os.environ['ANTHROPIC_API_KEY'] = answers_or_key['claude_api_key']
+        os.environ['ANTHROPIC_API_KEY'] = answers_claude_key['claude_api_key']
     return model_naming[answer_model]
 
 def extra_sensor_questions(answers_agent_type):
@@ -293,8 +293,15 @@ def extra_sensor_questions(answers_agent_type):
             for x in sensor_api_keys:
                 os.environ[x] = answer_sensor_api_keys[x]
                 sensor = TradingSensor(
-                    
+                    eth_address=os.environ['ETHER_ADDRESS'],
+                    infura_project_id=os.environ['INFURA_PROJECT_ID'],
+                    etherscan_api_key=os.environ['ETHERSCAN_API_KEY'],
                 )
+            else:
+                sensor = MockTradingSensor(
+                    eth_address="",infura_project_id="",etherscan_api_key=""
+                )
+
 
     elif answers_agent_type == 'marketing':
         sensor = MockMarketingSensor()
@@ -317,13 +324,13 @@ def extra_sensor_questions(answers_agent_type):
 
 def extra_rag_questions(answer_rag, agent_type):
     if answer_rag == "Yes, i have setup the RAG":
-        rag_url = 'http://localhost:8080'
+        rag_url = os.getenv('RAG_URL', 'http://localhost:8080')
         logger.info(f'Checking default address of RAG service {rag_url}')
         try:
             resp = requests.get(rag_url + "/health")
             resp.raise_for_status()
             rag = RAGClient(
-                base_url='http://localhost:8080',
+                base_url=rag_url,
                 session_id='default_marketing' if agent_type == 'marketing' else 'default_trading',
                 agent_id='default_marketing' if agent_type == 'marketing' else 'default_trading',
             )
@@ -379,10 +386,7 @@ def starter_prompt():
     if answers['agent_type'] == 'marketing':
         fe_data = FE_DATA_MARKETING_DEFAULTS.copy()
     elif answers['agent_type'] == 'trading':
-        tx_service_url_answers = inquirer.prompt([
-            inquirer.List('tx_service_url', message='URL of meta-swap-api', choices=['http://localhost:9009', 'http://meta-swap-api:9009'], default=['http://localhost:9009'])
-        ])
-        os.environ['TXN_SERVICE_URL'] = tx_service_url_answers["tx_service_url"]
+        os.environ['TXN_SERVICE_URL'] = os.getenv("TXN_SERVICE_URL", "http://localhost:9009")
         fe_data = FE_DATA_TRADING_DEFAULTS.copy()
 
     if answers['agent_type'] == 'marketing':

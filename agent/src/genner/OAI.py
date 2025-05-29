@@ -59,16 +59,18 @@ class OAIGenner(Genner):
 		try:
 			if self.do_stream:
 				assert self.stream_fn is not None
+				kwargs = {
+					"model": self.config.model,
+					"messages": messages.as_native(),
+					"max_completion_tokens": self.config.max_tokens,
+					"temperature": self.config.temperature,
+					"stream": True,
+				}
 
-				stream: Generator[ChatCompletionChunk, None, None] = (
-					self.client.chat.completions.create(
-						model=self.config.model,  # type: ignore
-						messages=messages.as_native(),  # type: ignore
-						max_tokens=self.config.max_tokens,  # type: ignore
-						temperature=self.config.temperature,  # type: ignore
-						stream=True,
-					)
-				)
+				if self.config.model == "o3-mini":	
+					kwargs.pop("temperature")
+
+				stream: Generator[ChatCompletionChunk, None, None] = self.client.chat.completions.create(**kwargs)
 
 				if self.config.thinking_delimiter != "":
 					main_entered = False
@@ -118,13 +120,18 @@ class OAIGenner(Genner):
 							final_response += token
 							self.stream_fn(token)
 			else:
-				response = self.client.chat.completions.create(
-					model=self.config.model,  # type: ignore
-					messages=messages.as_native(),  # type: ignore
-					max_tokens=self.config.max_tokens,
-					temperature=self.config.temperature,
-					stream=False,
-				)
+				kwargs = {
+					"model": self.config.model,
+					"messages": messages.as_native(),
+					"max_completion_tokens": self.config.max_tokens,
+					"temperature": self.config.temperature,
+					"stream": False,
+				}
+
+				if self.config.model == "o3-mini":	
+					kwargs.pop("temperature")
+
+				response = self.client.chat.completions.create(**kwargs)
 
 				final_response: str = response.choices[0].message.content
 				final_response = final_response.split(self.config.thinking_delimiter)[
