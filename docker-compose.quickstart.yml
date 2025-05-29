@@ -17,12 +17,14 @@ services:
     environment:
       - PYTHONPATH=/app
       - SQLITE_PATH=/app/db/superior-agents.db
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # - OPENAI_API_KEY=${OPENAI_API_KEY}
       - TXN_SERVICE_URL=http://meta-swap-api:9009
       - RAG_URL=http://rag-api:8080
     command: sleep infinity
     networks:
       - app-network
+    env_file:
+      - ./examples/.env.quickstart
 
   meta-swap-api:
     build:
@@ -34,10 +36,12 @@ services:
       - app-network
     environment:
       - NODE_ENV=development
-      - ETH_PRIVATE_KEY=${ETH_PRIVATE_KEY}
+      # - ETH_PRIVATE_KEY=${ETH_PRIVATE_KEY}
       - ETH_RPC_URL=https://eth-protect.rpc.blxrbdn.com
       - PORT=9009
       - SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+    env_file:
+      - ./examples/.env.quickstart
 
   rag-api:
     build:
@@ -50,7 +54,9 @@ services:
     environment:
       - PORT=8080
       - NODE_ENV=development
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # - OPENAI_API_KEY=${OPENAI_API_KEY}
+    env_file:
+      - ./examples/.env.quickstart
     
 networks:
   app-network:

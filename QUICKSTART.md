@@ -13,9 +13,14 @@ docker compose version
 
 1. Start the containers
 
+CHANGE THE .env.quickstart file to your environment variables
 ```
-export OPENAI_API_KEY=your_openai_api_key
-export ETH_PRIVATE_KEY=your_eth_private_key
+OPENAI_API_KEY=your_openai_api_key
+ETH_PRIVATE_KEY=your_eth_private_key
+```
+
+Then, run the command
+```
 docker compose -f docker-compose.quickstart.yml up --build
 ```
 
