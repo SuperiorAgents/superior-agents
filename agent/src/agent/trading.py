@@ -502,7 +502,7 @@ class TradingPromptGenerator:
             Today's date is {today_date}.
             Your goal is to maximize {metric_name} within {time}
             Your current portfolio on {network} network is: {metric_state}
-            Note: The ETH balance shown is your available balance for trading. A small amount is automatically reserved for gas fees.
+            Note: Do not trade ETH. This is reserved to pay gas fees. Trade WETH instead.
         """).strip(),
             #
             #
