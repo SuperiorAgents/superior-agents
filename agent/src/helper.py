@@ -8,6 +8,7 @@ from typing import Callable, Dict, List
 from src.constants import SERVICE_TO_PROMPT, SERVICE_TO_ENV
 import string
 import random
+import httpx
 
 @contextmanager
 def timeout(seconds: int):
@@ -201,3 +202,31 @@ def nanoid(size=21) -> str:
 
 	alphabet = string.ascii_letters + string.digits
 	return "".join(random.choice(alphabet) for _ in range(size))
+
+async def get_ether_address_from_txn_service(agent_id: str) -> str:
+	"""
+	Fetches the ETHER_ADDRESS (evm) from the txn_service_url/api/v1/addresses endpoint.
+
+	Returns:
+	    str: The EVM address as a string.
+
+	Raises:
+	    Exception: If the request fails or the response is invalid.
+	"""
+	txn_service_url = os.getenv("TXN_SERVICE_URL")
+	if not txn_service_url:
+		raise ValueError("TXN_SERVICE_URL not set in environment")
+
+	url = f"{txn_service_url}/api/v1/addresses"
+	headers = {"x-superior-agent-id": agent_id}
+
+	async with httpx.AsyncClient() as client:
+		resp = await client.get(url, headers=headers)
+		if resp.status_code != 200:
+			raise Exception(
+				f"Failed to fetch eth address: {resp.status_code} {resp.text}"
+			)
+		data = resp.json()
+		if "evm" not in data or data["evm"] == "NOT IMPORTED/CREATED":
+			raise Exception("ETHER ADDRESS not imported/created")
+		return data["evm"]

@@ -17,7 +17,6 @@ CHANGE THE .env.quickstart file to your environment variables
 ```
 OPENAI_API_KEY=your_openai_api_key
 ETH_PRIVATE_KEY=your_eth_private_key
-ETHER_ADDRESS=your_eth_address
 ```
 
 Then, run the command

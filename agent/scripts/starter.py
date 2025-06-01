@@ -1,3 +1,4 @@
+import asyncio
 import os
 import requests
 import tweepy
@@ -19,7 +20,7 @@ from src.agent.marketing import MarketingAgent, MarketingPromptGenerator
 from src.agent.trading import TradingAgent, TradingPromptGenerator
 from src.datatypes import StrategyData
 from src.container import ContainerManager
-from src.helper import services_to_envs, services_to_prompts
+from src.helper import get_ether_address_from_txn_service, services_to_envs, services_to_prompts
 from src.genner import get_genner
 from src.genner.Base import Genner
 from src.client.openrouter import OpenRouter
@@ -290,10 +291,11 @@ def extra_sensor_questions(answers_agent_type):
             sensor_api_keys = [x for x in sensor_api_keys if not os.getenv(x)]
             question_sensor_api_keys = [inquirer.Text(name=x, message=f'Please enter value for this variable {x}') for x in sensor_api_keys if not os.getenv(x)]
             answer_sensor_api_keys = inquirer.prompt(question_sensor_api_keys)
+            eth_address = asyncio.run(get_ether_address_from_txn_service('default_trading'))
             for x in sensor_api_keys:
                 os.environ[x] = answer_sensor_api_keys[x]
                 sensor = TradingSensor(
-                    eth_address=os.getenv('ETHER_ADDRESS'),
+                    eth_address=eth_address,
                     infura_project_id=os.getenv('INFURA_PROJECT_ID'),
                     etherscan_api_key=os.getenv('ETHERSCAN_API_KEY'),
                 )
