@@ -164,6 +164,7 @@ def get_data_raw_v3(
 	# Always get top_k results
 	return get_context_from_kb_with_top_k(vectorstore, query, top_k)
 
+
 def get_data_raw_v4(
 	notification_query: str,
 	agent_id: str,

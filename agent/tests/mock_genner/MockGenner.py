@@ -1,8 +1,8 @@
-from result import Ok, Err
+from result import Ok
 from typing import List, Tuple
 from src.types import ChatHistory
 from src.genner import Genner  # adjust this import if necessary
-from result import Err, Ok, Result
+from result import Result
 
 
 class MockGenner(Genner):
@@ -36,5 +36,7 @@ class MockGenner(Genner):
 	def extract_list(
 		self, response: str, block_name: List[str] = []
 	) -> Result[List[List[str]], str]:
-		mock_extracted = [block.strip("- ").split("\n") for block in response.split("\n\n")]
+		mock_extracted = [
+			block.strip("- ").split("\n") for block in response.split("\n\n")
+		]
 		return Ok(mock_extracted)

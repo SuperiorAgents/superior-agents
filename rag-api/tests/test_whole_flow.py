@@ -1,6 +1,5 @@
-from src.store import save_result, save_result_v4
-from src.fetch import get_data_raw_v3, get_data_raw_v4
-from uuid import uuid4
+from src.store import save_result_v4
+from src.fetch import get_data_raw_v4
 
 
 save_result_v4(

@@ -319,7 +319,7 @@ export class SwapService {
 		provider: ISwapProvider,
 		params: SwapParams,
 		agentId?: string,
-		quote?: ProviderQuote,
+		_quote?: ProviderQuote,
 	) {
 		if (agentId) {
 			this.logger.log(`Executing swap for agent ${agentId}`);
@@ -390,8 +390,6 @@ export class SwapService {
 		if (!receipt) {
 			throw new HttpException("Cannot find transaction receipt", 404);
 		}
-
-		
 
 		return {
 			transactionHash: receipt.hash,

@@ -2,7 +2,6 @@ import re
 from typing import Callable, Generator, List, Tuple
 
 import yaml
-from loguru import logger
 from openai import OpenAI
 from openai.types.chat import ChatCompletionChunk
 from result import Err, Ok, Result
@@ -67,10 +66,12 @@ class OAIGenner(Genner):
 					"stream": True,
 				}
 
-				if self.config.model == "o3-mini":	
+				if self.config.model == "o3-mini":
 					kwargs.pop("temperature")
 
-				stream: Generator[ChatCompletionChunk, None, None] = self.client.chat.completions.create(**kwargs)
+				stream: Generator[ChatCompletionChunk, None, None] = (
+					self.client.chat.completions.create(**kwargs)
+				)
 
 				if self.config.thinking_delimiter != "":
 					main_entered = False
@@ -128,7 +129,7 @@ class OAIGenner(Genner):
 					"stream": False,
 				}
 
-				if self.config.model == "o3-mini":	
+				if self.config.model == "o3-mini":
 					kwargs.pop("temperature")
 
 				response = self.client.chat.completions.create(**kwargs)
@@ -175,8 +176,12 @@ class OAIGenner(Genner):
 			completion_result = self.ch_completion(messages)
 
 			if err := completion_result.err():
-				return Ok((None, raw_response)) if raw_response else Err(
-					f"OAIGenner.{self.config.name}.generate_code: completion_result.is_err(): \n{err}"
+				return (
+					Ok((None, raw_response))
+					if raw_response
+					else Err(
+						f"OAIGenner.{self.config.name}.generate_code: completion_result.is_err(): \n{err}"
+					)
 				)
 
 			raw_response = completion_result.unwrap()
@@ -191,8 +196,12 @@ class OAIGenner(Genner):
 			return Ok((processed_code, raw_response))
 
 		except Exception as e:
-			return Ok((None, raw_response)) if raw_response else Err(
-				f"OAIGenner.{self.config.name}.generate_code: An unexpected error occurred: \n{e}"
+			return (
+				Ok((None, raw_response))
+				if raw_response
+				else Err(
+					f"OAIGenner.{self.config.name}.generate_code: An unexpected error occurred: \n{e}"
+				)
 			)
 
 	def generate_list(

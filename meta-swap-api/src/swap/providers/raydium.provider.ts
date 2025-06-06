@@ -133,7 +133,7 @@ export class RaydiumSwapProvider implements ISwapProvider {
 		const tx = Transaction.from(txBuf);
 
 		return {
-			instructions: tx.instructions
+			instructions: tx.instructions,
 		};
 	}
 

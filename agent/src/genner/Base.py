@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from typing import Callable, List, Tuple
-from loguru import logger
 from ollama import ChatResponse, chat
 from result import Err, Ok, Result
 
@@ -243,8 +242,12 @@ class OllamaGenner(Genner):
 			completion_result = self.ch_completion(messages)
 
 			if err := completion_result.err():
-				return Ok((None, raw_response)) if raw_response else Err(
-					f"OllamaGenner.{self.config.name}.generate_code: completion_result.is_err(): \n{err}"
+				return (
+					Ok((None, raw_response))
+					if raw_response
+					else Err(
+						f"OllamaGenner.{self.config.name}.generate_code: completion_result.is_err(): \n{err}"
+					)
 				)
 
 			raw_response = completion_result.unwrap()
@@ -259,8 +262,12 @@ class OllamaGenner(Genner):
 			return Ok((processed_code, raw_response))
 
 		except Exception as e:
-			return Ok((None, raw_response)) if raw_response else Err(
-				f"OllamaGenner.{self.config.name}.generate_code: An unexpected error occurred: \n{e}"
+			return (
+				Ok((None, raw_response))
+				if raw_response
+				else Err(
+					f"OllamaGenner.{self.config.name}.generate_code: An unexpected error occurred: \n{e}"
+				)
 			)
 
 	def generate_list(

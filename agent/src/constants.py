@@ -1,34 +1,34 @@
 from textwrap import dedent
-from typing import Callable, Dict, List
+from typing import Dict, List
 
 FE_DATA_MARKETING_DEFAULTS = {
-    "model": "deepseek_v3_or",
-    "role": "terse, funny, curious, philosophical",
-    "time": "24h",
-    "metric_name": "followers",
-    "research_tools": [
-        "Twitter",
-        "CoinGecko",
-        "DuckDuckGo",
-    ],
-    "notifications": ["twitter"],
-    "twitter_access_token": "",
-    "prompts": {},
+	"model": "deepseek_v3_or",
+	"role": "terse, funny, curious, philosophical",
+	"time": "24h",
+	"metric_name": "followers",
+	"research_tools": [
+		"Twitter",
+		"CoinGecko",
+		"DuckDuckGo",
+	],
+	"notifications": ["twitter"],
+	"twitter_access_token": "",
+	"prompts": {},
 }
 
 FE_DATA_TRADING_DEFAULTS = {
-    "model": "deepseek_v3_or",
-    "role": "terse, funny, curious, philosophical",
-    "network": "ethereum",
-    "time": "24h",
-    "metric_name": "wallet",
-    "research_tools": [
-        "CoinGecko",
-        "DuckDuckGo",
-    ],
-    "prompts": {},
-    "notifications": ["twitter"],
-    "trading_instruments": ["spot"],
+	"model": "deepseek_v3_or",
+	"role": "terse, funny, curious, philosophical",
+	"network": "ethereum",
+	"time": "24h",
+	"metric_name": "wallet",
+	"research_tools": [
+		"CoinGecko",
+		"DuckDuckGo",
+	],
+	"prompts": {},
+	"notifications": ["twitter"],
+	"trading_instruments": ["spot"],
 }
 
 
@@ -170,7 +170,6 @@ SERVICE_TO_PROMPT = {
 		}}
 		</CoinGeckoSearch>
 	"""),
-		
 	"DuckDuckGo": "DuckDuckGo (command line `ddgr`) (example usage `ddgr --json x` to search for x)",
 	"Etherscan": "Etherscan (env vars ETHERSCAN_API_KEY)",
 	# "Arbiscan": "Arbiscan (env vars ??)",
@@ -179,23 +178,22 @@ SERVICE_TO_PROMPT = {
 	"Infura": "Infura (env vars INFURA_PROJECT_ID)",
 }
 
-SERVICE_TO_ENV : Dict[str, List[str]] = {
-		"Twitter": [
-			"TWITTER_API_KEY",
-			"TWITTER_API_KEY_SECRET",
-			"TWITTER_ACCESS_TOKEN",
-			"TWITTER_ACCESS_TOKEN_SECRET",
-			"TWITTER_BEARER_TOKEN",
-
-		],
-		"CoinGecko": [
-			"COINGECKO_API_KEY",
-		],
-		"DuckDuckGo": [],
-		"Etherscan": [
-			"ETHERSCAN_API_KEY",
-		],
-		"Infura": [
-			"INFURA_PROJECT_ID",
-		],
-	}
+SERVICE_TO_ENV: Dict[str, List[str]] = {
+	"Twitter": [
+		"TWITTER_API_KEY",
+		"TWITTER_API_KEY_SECRET",
+		"TWITTER_ACCESS_TOKEN",
+		"TWITTER_ACCESS_TOKEN_SECRET",
+		"TWITTER_BEARER_TOKEN",
+	],
+	"CoinGecko": [
+		"COINGECKO_API_KEY",
+	],
+	"DuckDuckGo": [],
+	"Etherscan": [
+		"ETHERSCAN_API_KEY",
+	],
+	"Infura": [
+		"INFURA_PROJECT_ID",
+	],
+}

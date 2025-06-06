@@ -1,8 +1,6 @@
-import logging
 import os
-import sys
 from datetime import datetime
-from typing import Any, Generic, List, Optional, TypeVar
+from typing import Generic, List, TypeVar
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
@@ -377,7 +375,6 @@ async def store_execution_result_batch(params: List[SaveResultParams]):
 			},
 			status_code=500,
 		)
-
 
 
 @app.post("/save_result_batch_v4")

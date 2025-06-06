@@ -38,7 +38,7 @@ export class SwapController {
 	private readonly logger = new Logger(SwapController.name);
 	constructor(
 		@Inject(SwapService)
-		private readonly swapService: SwapService
+		private readonly swapService: SwapService,
 	) {}
 
 	@Post("swap")

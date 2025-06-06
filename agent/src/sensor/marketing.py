@@ -1,14 +1,10 @@
 from datetime import datetime, timedelta
 from functools import partial
-from math import e
 
-from duckduckgo_search import DDGS
 from src.twitter import TweepyTwitterClient, TweetData
 from loguru import logger
-from result import Ok, Err, Result, UnwrapError
-from typing import List
+from result import UnwrapError
 
-from src.datatypes.marketing import NewsData
 
 MOCK_TIME = datetime(2025, 1, 31, 10, 0, 0)
 MOCK_TWEETS = [

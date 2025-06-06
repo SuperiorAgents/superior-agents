@@ -1,0 +1,31 @@
+name: Formatter and Linters run
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ruff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/ruff-action@v3
+        with:
+          args: "--version"
+      - run: ruff check
+        working-directory: agent
+      - run: ruff format --check
+        working-directory: agent
+      - run: ruff check
+        working-directory: rag-api
+      - run: ruff format --check
+        working-directory: rag-api
+
+      - name: Setup Biome
+        uses: biomejs/setup-biome@v2
+        with:
+          version: latest
+      - name: Run Biome
+        run: biome ci .
+        working-directory: meta-swap-api

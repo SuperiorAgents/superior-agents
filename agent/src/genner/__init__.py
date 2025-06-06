@@ -132,9 +132,9 @@ def get_genner(
 
 		if not or_client:
 			return OAIGenner(
-				client=OpenAI(), 
-				config=OAIConfig(name=openai_config.name, model=openai_config.model), 
-				stream_fn=stream_fn
+				client=OpenAI(),
+				config=OAIConfig(name=openai_config.name, model=openai_config.model),
+				stream_fn=stream_fn,
 			)
 
 		return OpenRouterGenner(or_client, openai_config, stream_fn)

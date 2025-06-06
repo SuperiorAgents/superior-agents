@@ -1,9 +1,9 @@
 export class CreateTransferDto {
-    amount: number;
-    token: string;
-    toAddress: string;
+	amount: number;
+	token: string;
+	toAddress: string;
 }
 
 export class TransferResponseDto {
-    transactionHash: string;
+	transactionHash: string;
 }

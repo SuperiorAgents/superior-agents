@@ -8,6 +8,7 @@ from src.db.interface import DBInterface
 from src.types import ChatHistory
 import uuid
 
+
 @dataclass
 class TokenPriceData:
 	token_addr: str
@@ -15,6 +16,7 @@ class TokenPriceData:
 	price: str
 	last_updated_at: str
 	metadata: str
+
 
 class SQLiteDB(DBInterface):
 	def __init__(self, db_path: str):
@@ -359,10 +361,10 @@ class SQLiteDB(DBInterface):
 			if row:
 				return row[0]
 			return None
-		
+
 	def get_eth_price(self) -> Optional[TokenPriceData]:
-		return self.get_token_price('ETH')
-	
+		return self.get_token_price("ETH")
+
 	def get_token_price(self, symbol: str) -> Optional[TokenPriceData]:
 		with sqlite3.connect(self.db_path) as conn:
 			cursor = conn.cursor()
@@ -376,14 +378,14 @@ class SQLiteDB(DBInterface):
 
 			if row:
 				return TokenPriceData(
-					token_addr=row[0], 
-					symbol=row[1], 
-					price=row[2], 
-					last_updated_at=row[3], 
-					metadata=row[4] 
+					token_addr=row[0],
+					symbol=row[1],
+					price=row[2],
+					last_updated_at=row[3],
+					metadata=row[4],
 				)
 			return None
-	
+
 	def insert_token_price(self, token_addr, symbol, price, metadata=""):
 		try:
 			with sqlite3.connect(self.db_path) as conn:
@@ -391,18 +393,12 @@ class SQLiteDB(DBInterface):
 				cursor.execute(
 					"""INSERT INTO sup_token_price (token_addr, symbol, price, last_updated_at, metadata)
                        VALUES (?, ?, ?, ?, ?)""",
-					(
-						token_addr,
-						symbol,
-						price,
-						datetime.now().isoformat(),
-						metadata
-					),
+					(token_addr, symbol, price, datetime.now().isoformat(), metadata),
 				)
 				return True
 		except sqlite3.Error:
 			return False
-		
+
 	def update_token_price(self, token_addr, symbol, price, metadata) -> bool:
 		try:
 			with sqlite3.connect(self.db_path) as conn:
@@ -411,7 +407,14 @@ class SQLiteDB(DBInterface):
 					"""UPDATE sup_token_price 
                        SET token_addr = ?, symbol = ?, price = ?, last_updated_at = ?, metadata = ?
                        WHERE token_addr = ?""",
-					(token_addr, symbol, price, datetime.now().isoformat(), metadata, token_addr),
+					(
+						token_addr,
+						symbol,
+						price,
+						datetime.now().isoformat(),
+						metadata,
+						token_addr,
+					),
 				)
 				return cursor.rowcount > 0
 		except sqlite3.Error:

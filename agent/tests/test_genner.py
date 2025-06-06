@@ -18,12 +18,12 @@ or_client = OpenRouter(
 	api_key=OPENROUTER_API_KEY,
 	include_reasoning=True,
 )
-anthropic_client = Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+anthropic_client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 genner = get_genner(
-	"gemini", # openai, gemini, claude
+	"gemini",  # openai, gemini, claude
 	or_client=or_client,
-    anthropic_client=anthropic_client,
+	anthropic_client=anthropic_client,
 	stream_fn=lambda token: print(token, end="", flush=True),
 )
 

@@ -4,7 +4,6 @@ from typing import Callable, List, Tuple
 import yaml
 from anthropic import Anthropic, TextEvent
 from result import Err, Ok, Result
-from loguru import logger
 from src.config import ClaudeConfig
 from src.helper import extract_content
 from src.types import ChatHistory
@@ -126,8 +125,12 @@ class ClaudeGenner(Genner):
 			completion_result = self.ch_completion(messages)
 
 			if err := completion_result.err():
-				return Ok((None, raw_response)) if raw_response else Err(
-					f"ClaudeGenner.{self.config.name}.generate_code: completion_result.is_err(): \n{err}"
+				return (
+					Ok((None, raw_response))
+					if raw_response
+					else Err(
+						f"ClaudeGenner.{self.config.name}.generate_code: completion_result.is_err(): \n{err}"
+					)
 				)
 
 			raw_response = completion_result.unwrap()
@@ -142,8 +145,12 @@ class ClaudeGenner(Genner):
 			return Ok((processed_code, raw_response))
 
 		except Exception as e:
-			return Ok((None, raw_response)) if raw_response else Err(
-				f"ClaudeGenner.{self.config.name}.generate_code: An unexpected error occurred: \n{e}"
+			return (
+				Ok((None, raw_response))
+				if raw_response
+				else Err(
+					f"ClaudeGenner.{self.config.name}.generate_code: An unexpected error occurred: \n{e}"
+				)
 			)
 
 	def generate_list(

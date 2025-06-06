@@ -15,16 +15,18 @@ load_dotenv()
 
 DB = SQLiteDB(db_path=os.getenv("SQLITE_PATH", "../db/superior-agents.db"))
 
-def save_to_db(token_addr, symbol, price, metadata = ''):
+
+def save_to_db(token_addr, symbol, price, metadata=""):
 	token_price = DB.get_token_price(symbol=symbol)
 	if not token_price:
 		DB.insert_token_price(
-			token_addr=token_addr,symbol=symbol,price=price,metadata=metadata
+			token_addr=token_addr, symbol=symbol, price=price, metadata=metadata
 		)
 	else:
 		DB.update_token_price(
-			token_addr=token_addr,symbol=symbol,price=price,metadata=metadata
+			token_addr=token_addr, symbol=symbol, price=price, metadata=metadata
 		)
+
 
 class PriceProvider:
 	def __init__(self):
@@ -33,29 +35,31 @@ class PriceProvider:
 				"name": "binance",
 				"url": "https://api.binance.com/api/v3/ticker/price",
 				"params": {"symbol": "ETHUSDT"},
-				"params_token": lambda x: {"symbol": x.upper()+"USDT"},
+				"params_token": lambda x: {"symbol": x.upper() + "USDT"},
 				"price_path": lambda x: float(x["price"]),
 			},
 			{
 				"name": "kraken",
 				"url": "https://api.kraken.com/0/public/Ticker",
 				"params": {"pair": "ETHUSD"},
-				"params_token": lambda x: {"pair": x.upper()+"USD"},
+				"params_token": lambda x: {"pair": x.upper() + "USD"},
 				"price_path": lambda x: float(x["result"]["XETHZUSD"]["c"][0]),
-				"price_path_token": lambda x: float(list(x["result"].values())[0]["c"][0])
+				"price_path_token": lambda x: float(
+					list(x["result"].values())[0]["c"][0]
+				),
 			},
 			{
 				"name": "huobi",
 				"url": "https://api.huobi.pro/market/detail/merged",
 				"params": {"symbol": "ethusdt"},
-				"params_token": lambda x: {"symbol": x.lower()+"usdt"},
+				"params_token": lambda x: {"symbol": x.lower() + "usdt"},
 				"price_path": lambda x: float(x["tick"]["close"]),
 			},
 			{
 				"name": "coingecko",
 				"url": "https://api.coingecko.com/api/v3/simple/price",
 				"params": {"ids": "ethereum", "vs_currencies": "usd"},
-				"params_token": {"ids": "ethereum", "vs_currencies": "usd"}, # not used
+				"params_token": {"ids": "ethereum", "vs_currencies": "usd"},  # not used
 				"price_path": lambda x: x["ethereum"]["usd"],
 			},
 		]
@@ -63,7 +67,9 @@ class PriceProvider:
 
 	def _is_cache_valid(self, timestamp: float) -> bool:
 		print(timestamp)
-		return (datetime.now() - datetime.fromisoformat(timestamp)).total_seconds() < self._cache_ttl
+		return (
+			datetime.now() - datetime.fromisoformat(timestamp)
+		).total_seconds() < self._cache_ttl
 
 	def coingecko_provider_by_contract_address(
 		self, token_address: str, symbol: str, max_retries: int = 3
@@ -75,7 +81,10 @@ class PriceProvider:
 			try:
 				response = requests.get(
 					"https://api.coingecko.com/api/v3/simple/token_price/ethereum",
-					params={"contract_addresses": token_address, "vs_currencies": "usd"},
+					params={
+						"contract_addresses": token_address,
+						"vs_currencies": "usd",
+					},
 					timeout=10,
 				)
 				response.raise_for_status()
@@ -83,28 +92,36 @@ class PriceProvider:
 				data = response.json()
 				if data and token_address.lower() in data:
 					price = float(data[token_address.lower()]["usd"])
-					save_to_db(token_addr=token_address,symbol=symbol,price=price,metadata='coingecko')
+					save_to_db(
+						token_addr=token_address,
+						symbol=symbol,
+						price=price,
+						metadata="coingecko",
+					)
 					return price
 					break
 
 			except Exception as e:
 				if attempt == max_retries - 1:
 					print(f"Failed to get price for token {token_address}: {e}")
-					raise Exception(f"Failed to get price for token {token_address}: {e}")
+					raise Exception(
+						f"Failed to get price for token {token_address}: {e}"
+					)
 				delay = base_delay * (2**attempt)
 				time.sleep(delay)
 
-		raise Exception(f"coingecko_provider_by_contract_address: Coingecko providers failed")
+		raise Exception(
+			"coingecko_provider_by_contract_address: Coingecko providers failed"
+		)
 
 	def get_eth_price(self, max_retries: int = 3) -> float:
 		"""Get ETH price using multiple providers with failover"""
-		token_eth = DB.get_token_price(symbol='ETH')
-		
+		token_eth = DB.get_token_price(symbol="ETH")
+
 		if token_eth:
 			if self._is_cache_valid(token_eth.last_updated_at):
 				return token_eth.price
-			
-		
+
 		errors = []
 		for provider in self.providers:
 			for attempt in range(max_retries):
@@ -119,7 +136,9 @@ class PriceProvider:
 
 					if response.status_code == 429:  # Rate limit
 						wait_time = 2.0 * (2**attempt)
-						print(f"Rate limited by {provider['name']}, waiting {wait_time}s")
+						print(
+							f"Rate limited by {provider['name']}, waiting {wait_time}s"
+						)
 						time.sleep(wait_time)
 						continue
 
@@ -129,12 +148,16 @@ class PriceProvider:
 
 						if isinstance(price, (int, float)) and price > 0:
 							# Update cache
-							save_to_db(token_addr='default_eth_contract_addr',symbol='ETH',price=price)
+							save_to_db(
+								token_addr="default_eth_contract_addr",
+								symbol="ETH",
+								price=price,
+							)
 							print(f"Successfully got ETH price from {provider['name']}")
 							return price
 
 				except Exception as e:
-					logger.error(f'get_eth_price.err {e}')
+					logger.error(f"get_eth_price.err {e}")
 					error_msg = f"{provider['name']}: {str(e)}"
 					if "port=443)" in error_msg:
 						logger.error(
@@ -148,7 +171,7 @@ class PriceProvider:
 						time.sleep(2**attempt)
 					continue
 		# If we have a cached price, return it as fallback
-		token_eth = DB.get_token_price(symbol='ETH')
+		token_eth = DB.get_token_price(symbol="ETH")
 		if token_eth:
 			print("Using cached price as fallback")
 			return token_eth.price
@@ -162,10 +185,10 @@ class PriceProvider:
 		if token_price:
 			if self._is_cache_valid(token_price.last_updated_at):
 				return token_price.price
-		
+
 		errors = []
 		for provider in self.providers:
-			if provider['name'] == 'coingecko':
+			if provider["name"] == "coingecko":
 				continue
 			for attempt in range(max_retries):
 				try:
@@ -180,22 +203,33 @@ class PriceProvider:
 
 					if response.status_code == 429:  # Rate limit
 						wait_time = 2.0 * (2**attempt)
-						print(f"Rate limited by {provider['name']}, waiting {wait_time}s")
+						print(
+							f"Rate limited by {provider['name']}, waiting {wait_time}s"
+						)
 						time.sleep(wait_time)
 						continue
 
 					if response.status_code == 200:
 						data = response.json()
-						price = provider.get("price_path_token",provider['price_path'])(data)
+						price = provider.get(
+							"price_path_token", provider["price_path"]
+						)(data)
 
 						if isinstance(price, (int, float)) and price > 0:
 							# Update cache
-							print(f"Successfully got token price from {provider['name']}")
-							save_to_db(token_addr=token_address,symbol=symbol,price=price,metadata=provider['name'])
+							print(
+								f"Successfully got token price from {provider['name']}"
+							)
+							save_to_db(
+								token_addr=token_address,
+								symbol=symbol,
+								price=price,
+								metadata=provider["name"],
+							)
 							return price
 
 				except Exception as e:
-					logger.error(f'get_token_price.err {e}')
+					logger.error(f"get_token_price.err {e}")
 					error_msg = f"{provider['name']}: {str(e)}"
 					if "port=443)" in error_msg:
 						logger.error(
@@ -208,12 +242,15 @@ class PriceProvider:
 					if attempt < max_retries - 1:
 						time.sleep(2**attempt)
 					continue
-		
-		try: # one last attempt
-			price = self.coingecko_provider_by_contract_address(token_address, token_symbol)
+
+		try:  # one last attempt
+			price = self.coingecko_provider_by_contract_address(
+				token_address, token_symbol
+			)
 			return price
 		except Exception as e:
 			import traceback
+
 			print(traceback.format_exc())
 			print(e)
 
@@ -222,7 +259,7 @@ class PriceProvider:
 			if token_price:
 				print("Using cached price as fallback")
 				return token_price.price
-			
+
 			raise Exception(f"All providers failed: {'; '.join(errors)}")
 
 
@@ -241,6 +278,7 @@ def get_eth_price_v2(max_retries: int = 3) -> float:
 
 		except Exception as e:
 			import traceback
+
 			print(traceback.format_exc())
 			if attempt == max_retries - 1:
 				print(f"Failed to get price for token eth: {e}")
@@ -248,7 +286,6 @@ def get_eth_price_v2(max_retries: int = 3) -> float:
 			time.sleep(delay)
 
 	raise Exception("get_eth_price_v2: Fail getting price from rest-api")
-
 
 
 def get_token_prices_v2(
@@ -261,7 +298,7 @@ def get_token_prices_v2(
 	for token_addr, symbol in zip(token_addresses, symbols):
 		for attempt in range(max_retries):
 			try:
-				data = _price_provider.get_token_price(token_addr,symbol)
+				data = _price_provider.get_token_price(token_addr, symbol)
 				if data:
 					prices[token_addr] = float(data)
 					break
@@ -325,6 +362,7 @@ def get_token_transactions(
 			continue
 
 	return {"status": "0", "message": "Max retries exceeded", "result": []}
+
 
 def get_wallet_stats(
 	address: str, infura_project_id: str, etherscan_key: str
