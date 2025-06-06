@@ -1,13 +1,13 @@
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 require("source-map-support").install();
-import { HttpAdapterHost, NestFactory } from "@nestjs/core";
 import { BadRequestException, ValidationPipe } from "@nestjs/common";
-import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
-import { AppModule } from "./app.module";
-import { BootstrapLogger } from "./logger.instance";
-import { CatchEverythingFilter } from "./exception.filter";
 import { ConfigService } from "@nestjs/config";
+import { HttpAdapterHost, NestFactory } from "@nestjs/core";
+import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import type { ValidationError } from "class-validator";
+import { AppModule } from "./app.module";
+import { CatchEverythingFilter } from "./exception.filter";
+import { BootstrapLogger } from "./logger.instance";
 
 async function bootstrap() {
 	const logger = BootstrapLogger();

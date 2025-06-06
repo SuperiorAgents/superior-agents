@@ -1,20 +1,20 @@
 import {
+	Body,
 	Controller,
 	Get,
-	Inject,
 	Headers,
+	HttpException,
+	Inject,
 	Logger,
 	Post,
-	Body,
-	HttpException,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from "@nestjs/swagger";
+import { ApiHeader, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { EthService } from "../signers/eth.service";
+import { SolanaService } from "../signers/sol.service";
 import {
 	type CreateOrImportWalletDto,
 	CreateOrImportWalletResponseDto,
 } from "./dto/addresses";
-import { SolanaService } from "../signers/sol.service";
 
 @ApiTags("addresses")
 @Controller("addresses")

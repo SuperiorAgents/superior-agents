@@ -1,24 +1,24 @@
-import { ethers } from "ethers";
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import { BigNumber } from "bignumber.js";
+import { ConfigService } from "@nestjs/config";
+import { CurrencyAmount, Percent, Token, TradeType } from "@uniswap/sdk-core";
 import {
 	AlphaRouter,
 	type SwapOptionsSwapRouter02,
 	SwapType,
 } from "@uniswap/smart-order-router";
-import { Token, TradeType, CurrencyAmount, Percent } from "@uniswap/sdk-core";
+import { BigNumber } from "bignumber.js";
+import { ethers } from "ethers";
 import JSBI from "jsbi";
 import {
 	ChainId,
+	type EthUnsignedSwapTransaction,
 	type SwapParams,
 	type SwapQuote,
 	type TokenInfo,
 	type UnsignedSwapTransaction,
-	type EthUnsignedSwapTransaction,
 } from "../swap/interfaces/swap.interface";
 import { BaseSwapProvider } from "./base-swap.provider";
 import { AVAILABLE_PROVIDERS } from "./constants";
-import { ConfigService } from "@nestjs/config";
 
 @Injectable()
 export class UniswapV3Provider extends BaseSwapProvider {

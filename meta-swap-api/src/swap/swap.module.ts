@@ -1,12 +1,12 @@
 import { Module } from "@nestjs/common";
-import { SwapController } from "./swap.controller";
-import { SwapService } from "./swap.service";
 import { SignersModule } from "../signers/signers.module";
-import { OkxSwapProvider } from "../swap-providers/okx.provider";
-import { KyberSwapProvider } from "../swap-providers/kyber.provider";
 import { OneInchV6Provider } from "../swap-providers/1inch.v6.provider";
+import { KyberSwapProvider } from "../swap-providers/kyber.provider";
+import { OkxSwapProvider } from "../swap-providers/okx.provider";
 import { OpenOceanProvider } from "../swap-providers/openfinance.provider";
 import { UniswapV3Provider } from "../swap-providers/uniswap.provider";
+import { SwapController } from "./swap.controller";
+import { SwapService } from "./swap.service";
 
 @Module({
 	imports: [SignersModule],

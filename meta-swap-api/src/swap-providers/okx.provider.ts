@@ -1,19 +1,19 @@
-import { Injectable, Logger, Inject } from "@nestjs/common";
-import { OkxKeyProvider } from "../global/okx-key.provider";
-import { BigNumber } from "bignumber.js";
+import { Inject, Injectable, Logger } from "@nestjs/common";
+import { OKXDexClient } from "@okx-dex/okx-dex-sdk";
 import { Transaction } from "@solana/web3.js";
+import { BigNumber } from "bignumber.js";
+import { OkxKeyProvider } from "../global/okx-key.provider";
 import {
 	ChainId,
+	type EthUnsignedSwapTransaction,
+	type SolUnsignedSwapTransaction,
 	type SwapParams,
 	type SwapQuote,
 	type TokenInfo,
 	type UnsignedSwapTransaction,
-	type SolUnsignedSwapTransaction,
-	type EthUnsignedSwapTransaction,
 } from "../swap/interfaces/swap.interface";
 import { BaseSwapProvider } from "./base-swap.provider";
 import { AVAILABLE_PROVIDERS } from "./constants";
-import { OKXDexClient } from "@okx-dex/okx-dex-sdk";
 
 const OkxChainIdMap: Record<ChainId, string> = {
 	[ChainId.SOL]: "501",

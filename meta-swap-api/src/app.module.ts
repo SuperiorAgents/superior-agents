@@ -1,9 +1,9 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-import { SwapModule } from "./swap/swap.module";
 import { AddressesModule } from "./addresses/addresses.module";
-import { LoggerModuleInstance } from "./logger.instance";
 import { GlobalModule } from "./global/global.module";
+import { LoggerModuleInstance } from "./logger.instance";
+import { SwapModule } from "./swap/swap.module";
 import { TransferModule } from "./transfer/transfer.module";
 
 @Module({

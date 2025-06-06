@@ -1,7 +1,7 @@
 import { Module } from "@nestjs/common";
-import { OkxSwapProvider } from "./okx.provider";
-import { KyberSwapProvider } from "./kyber.provider";
 import { OneInchV6Provider } from "./1inch.v6.provider";
+import { KyberSwapProvider } from "./kyber.provider";
+import { OkxSwapProvider } from "./okx.provider";
 import { OpenOceanProvider } from "./openfinance.provider";
 import { UniswapV3Provider } from "./uniswap.provider";
 

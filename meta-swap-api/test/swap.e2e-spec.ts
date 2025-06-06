@@ -1,17 +1,17 @@
-import { Test, TestingModule } from "@nestjs/testing";
 import type { INestApplication } from "@nestjs/common";
+import { Test, TestingModule } from "@nestjs/testing";
+import { BigNumber } from "bignumber.js";
 import request from "supertest";
+import { EthService } from "../src/signers/eth.service";
+import { OneInchV6Provider } from "../src/swap-providers/1inch.v6.provider";
+import { AVAILABLE_PROVIDERS } from "../src/swap-providers/constants";
+import { KyberSwapProvider } from "../src/swap-providers/kyber.provider";
+import { OkxSwapProvider } from "../src/swap-providers/okx.provider";
+import { OpenOceanProvider } from "../src/swap-providers/openfinance.provider";
+import type { QuoteRequestDto, SwapRequestDto } from "../src/swap/dto/swap.dto";
+import { ChainId, type TokenInfo } from "../src/swap/interfaces/swap.interface";
 import { SwapController } from "../src/swap/swap.controller";
 import { SwapService } from "../src/swap/swap.service";
-import { type TokenInfo, ChainId } from "../src/swap/interfaces/swap.interface";
-import { AVAILABLE_PROVIDERS } from "../src/swap-providers/constants";
-import type { SwapRequestDto, QuoteRequestDto } from "../src/swap/dto/swap.dto";
-import { OkxSwapProvider } from "../src/swap-providers/okx.provider";
-import { KyberSwapProvider } from "../src/swap-providers/kyber.provider";
-import { OneInchV6Provider } from "../src/swap-providers/1inch.v6.provider";
-import { OpenOceanProvider } from "../src/swap-providers/openfinance.provider";
-import { EthService } from "../src/signers/eth.service";
-import { BigNumber } from "bignumber.js";
 
 describe("SwapController (e2e)", () => {
 	let app: INestApplication;

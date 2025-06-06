@@ -1,5 +1,5 @@
-import { Test, type TestingModule } from "@nestjs/testing";
 import type { INestApplication } from "@nestjs/common";
+import { Test, type TestingModule } from "@nestjs/testing";
 import request from "supertest";
 import { AddressesController } from "../src/addresses/addresses.controller";
 import { EthService } from "../src/signers/eth.service";

@@ -1,5 +1,8 @@
-import { BigNumber } from "bignumber.js";
+import { HttpException, Logger } from "@nestjs/common";
 import axios, { type AxiosInstance } from "axios";
+import axiosRetry from "axios-retry";
+import { BigNumber } from "bignumber.js";
+import * as LossLessJson from "lossless-json";
 import {
 	ChainId,
 	type ISwapProvider,
@@ -11,9 +14,6 @@ import {
 import { BaseSwapProvider } from "./base-swap.provider";
 import { AVAILABLE_PROVIDERS } from "./constants";
 import { RoundRobinKeyProvider } from "./utils/round-robin-key-provider";
-import { HttpException, Logger } from "@nestjs/common";
-import * as LossLessJson from "lossless-json";
-import axiosRetry from "axios-retry";
 
 export class OneInchV6Provider
 	extends BaseSwapProvider

@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
-import type { CreateTransferDto } from "./dto/transfer.dto";
-import { EthService } from "../signers/eth.service";
 import { Inject } from "@nestjs/common";
+import { EthService } from "../signers/eth.service";
+import type { CreateTransferDto } from "./dto/transfer.dto";
 
 @Injectable()
 export class TransferService {

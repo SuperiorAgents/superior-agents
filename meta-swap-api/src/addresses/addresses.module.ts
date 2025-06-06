@@ -1,6 +1,6 @@
 import { Module } from "@nestjs/common";
-import { AddressesController } from "./addresses.controller";
 import { SignersModule } from "../signers/signers.module";
+import { AddressesController } from "./addresses.controller";
 
 @Module({
 	imports: [SignersModule],

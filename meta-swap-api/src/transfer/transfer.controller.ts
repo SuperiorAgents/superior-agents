@@ -1,8 +1,11 @@
-import { Controller, Post, Body, HttpException, Logger } from "@nestjs/common";
-import type { TransferService } from "./transfer.service";
-import { type CreateTransferDto, TransferResponseDto } from "./dto/transfer.dto";
-import { ApiTags, ApiHeader, ApiOperation, ApiResponse } from "@nestjs/swagger";
+import { Body, Controller, HttpException, Logger, Post } from "@nestjs/common";
 import { Headers } from "@nestjs/common";
+import { ApiHeader, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
+import {
+	type CreateTransferDto,
+	TransferResponseDto,
+} from "./dto/transfer.dto";
+import type { TransferService } from "./transfer.service";
 
 @ApiTags("transfers")
 @ApiHeader({

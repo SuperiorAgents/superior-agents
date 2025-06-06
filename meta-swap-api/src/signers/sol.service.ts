@@ -4,17 +4,17 @@ import {
 	Injectable,
 	type OnModuleInit,
 } from "@nestjs/common";
+import { Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import {
 	Connection,
 	Keypair,
 	type PublicKey,
 	Transaction,
-	sendAndConfirmTransaction,
 	type TransactionInstruction,
+	sendAndConfirmTransaction,
 } from "@solana/web3.js";
 import bs58 from "bs58";
-import { Logger } from "@nestjs/common";
 
 @Injectable()
 export class SolanaService implements OnModuleInit {
