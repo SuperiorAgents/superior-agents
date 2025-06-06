@@ -112,7 +112,7 @@ export class OneInchV6Provider
 			},
 		);
 
-		if (response.status != 200) {
+		if (response.status !== 200) {
 			throw new Error(response.data);
 		}
 
@@ -167,7 +167,7 @@ export class OneInchV6Provider
 			);
 
 			const { data } = response;
-			if (response.status != 200) {
+			if (response.status !== 200) {
 				this.logger.log(
 					`1inch status provider return status ${response.status}`,
 					{

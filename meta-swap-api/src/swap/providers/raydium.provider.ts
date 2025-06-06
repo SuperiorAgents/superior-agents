@@ -98,7 +98,7 @@ export class RaydiumSwapProvider implements ISwapProvider {
 	async getUnsignedTransaction(
 		params: SwapParams,
 	): Promise<SolUnsignedSwapTransaction> {
-		const { fromToken, toToken, amount, slippageTolerance } = params;
+		const { fromToken, toToken, amount } = params;
 
 		// Get priority fee
 		const { data: priorityFeeData } = await axios.get<{

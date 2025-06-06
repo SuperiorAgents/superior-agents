@@ -324,7 +324,7 @@ export class EthService implements OnModuleInit {
 		if (!wallet) {
 			throw new Error(`Owner address ${ownerAddress} not found`);
 		}
-		if (tokenAddress == "0x0000000000000000000000000000000000000000") {
+		if (tokenAddress === "0x0000000000000000000000000000000000000000") {
 			const tx = {
 				to: toAddress,
 				value: 0, // use 0 here to get accurate gas estimate

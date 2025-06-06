@@ -18,7 +18,7 @@ import { ChainId } from "../interfaces/swap.interface";
 
 @ValidatorConstraint({ name: "string-or-number", async: false })
 export class IsNumberStringOrString implements ValidatorConstraintInterface {
-	validate(text: any, _args: ValidationArguments) {
+	validate(text: number | string, _args: ValidationArguments) {
 		return (
 			typeof text === "number" ||
 			(typeof text === "string" && validator.isNumeric(text))

@@ -193,7 +193,7 @@ export class KyberSwapProvider
 			{
 				headers,
 				validateStatus: (number) => {
-					if (number != 200) {
+					if (number !== 200) {
 						this.logger.log(`kyber status provider return status ${number}`);
 					}
 
@@ -203,7 +203,7 @@ export class KyberSwapProvider
 		);
 
 		const data = response.data;
-		if (response.status != 200) {
+		if (response.status !== 200) {
 			this.logger.log(
 				`kyber status provider return status ${response.status}`,
 				{

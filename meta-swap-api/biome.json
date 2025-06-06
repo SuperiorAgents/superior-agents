@@ -28,7 +28,31 @@
 				"noUnusedVariables": {
 					"level": "error",
 					"fix": "safe"
-				}
+				},
+				"noUnnecessaryContinue": "info"
+			},
+			"complexity": {
+				"useLiteralKeys": "off",
+				"noUselessConstructor": "off",
+				"useOptionalChain": "info",
+				"noForEach": "info"
+			},
+			"suspicious": {
+				"noDoubleEquals": {
+					"options": {
+						"ignoreNull": false
+					},
+					"level": "warn",
+					"fix": "safe"
+				},
+				"noExplicitAny": "info"
+			},
+			"style": {
+				"noUselessElse": "off",
+				"noNonNullAssertion": "warn"
+			},
+			"performance": {
+				"noDelete": "info"
 			}
 		}
 	},
