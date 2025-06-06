@@ -1,6 +1,5 @@
 import { HttpException, Inject, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import axios from "axios";
 import { BigNumber } from "bignumber.js";
 import { ZeroAddress, ethers } from "ethers-v6";
 import {
@@ -16,7 +15,6 @@ import { KyberSwapProvider } from "../swap-providers/kyber.provider";
 import { OkxSwapProvider } from "../swap-providers/okx.provider";
 import { OpenOceanProvider } from "../swap-providers/openfinance.provider";
 import { UniswapV3Provider } from "../swap-providers/uniswap.provider";
-import { isDev } from "../utils";
 import type {
 	QuoteRequestDto,
 	QuoteResponseDto,

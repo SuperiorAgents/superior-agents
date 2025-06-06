@@ -5,7 +5,6 @@ import {
 	type ExceptionFilter,
 	HttpException,
 	HttpStatus,
-	Logger,
 	type LoggerService,
 } from "@nestjs/common";
 import type { HttpAdapterHost } from "@nestjs/core";

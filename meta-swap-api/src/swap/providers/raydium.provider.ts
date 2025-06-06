@@ -1,6 +1,6 @@
 import { API_URLS } from "@raydium-io/raydium-sdk-v2";
 import { NATIVE_MINT } from "@solana/spl-token";
-import { Transaction, VersionedTransaction } from "@solana/web3.js";
+import { Transaction } from "@solana/web3.js";
 import axios from "axios";
 import { BigNumber } from "bignumber.js";
 import { AVAILABLE_PROVIDERS } from "../../swap-providers/constants";

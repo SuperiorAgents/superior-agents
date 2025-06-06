@@ -1,14 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import {
-	IsBoolean,
-	IsEnum,
-	IsNumber,
-	IsNumberString,
-	IsOptional,
-	IsString,
-	Max,
-	Min,
-} from "class-validator";
+import { IsBoolean, IsEnum, IsOptional, IsString } from "class-validator";
 
 export enum WALLET_TYPES {
 	ETHEREUM = "evm",

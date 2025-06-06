@@ -6,7 +6,6 @@ import {
 } from "@nestjs/common";
 import { Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import axios from "axios";
 import BigNumber from "bignumber.js";
 import { isNumber } from "class-validator";
 import {
@@ -24,7 +23,6 @@ import KeyvFile from "keyv-file";
 import { ExecutionReveted } from "../errors/error.list";
 import { ETH_RPC_PROVIDER } from "../global/eth-provider.service";
 import type { ChainId } from "../swap/interfaces/swap.interface";
-import { isDev } from "../utils";
 
 function sleep(ms: number) {
 	return new Promise((resolve) => {

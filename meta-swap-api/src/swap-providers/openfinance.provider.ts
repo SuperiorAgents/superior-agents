@@ -7,7 +7,6 @@ import {
 	type ISwapProvider,
 	type SwapParams,
 	type SwapQuote,
-	SwapResult,
 	type TokenInfo,
 	type UnsignedSwapTransaction,
 } from "../swap/interfaces/swap.interface";

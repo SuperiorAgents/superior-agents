@@ -1,12 +1,11 @@
 import type { BigNumber } from "bignumber.js";
-import {
-	type ChainId,
-	type ISwapProvider,
-	type SwapParams,
-	type SwapQuote,
-	SwapResult,
-	type TokenInfo,
-	type UnsignedSwapTransaction,
+import type {
+	ChainId,
+	ISwapProvider,
+	SwapParams,
+	SwapQuote,
+	TokenInfo,
+	UnsignedSwapTransaction,
 } from "../swap/interfaces/swap.interface";
 
 export abstract class BaseSwapProvider implements ISwapProvider {

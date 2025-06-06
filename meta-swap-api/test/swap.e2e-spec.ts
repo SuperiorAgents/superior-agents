@@ -1,5 +1,5 @@
 import type { INestApplication } from "@nestjs/common";
-import { Test, TestingModule } from "@nestjs/testing";
+import { Test } from "@nestjs/testing";
 import { BigNumber } from "bignumber.js";
 import request from "supertest";
 import { EthService } from "../src/signers/eth.service";

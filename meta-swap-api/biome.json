@@ -23,7 +23,7 @@
 			"correctness": {
 				"noUnusedImports": {
 					"level": "error",
-					"fix": "unsafe"
+					"fix": "safe"
 				},
 				"noUnusedVariables": {
 					"level": "error",
