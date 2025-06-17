@@ -216,28 +216,42 @@ class RAGClient:
 				missing_keys += 1
 				continue
 
-			payload.append(
-				{
-					"notification_key": data_params["notif_str"],
-					"strategy_data": json.dumps(dataclasses.asdict(data)),
-					"reference_id": data.strategy_id,
-					"agent_id": self.agent_id,
-					"session_id": self.session_id,
-					"created_at": data.created_at,
-				}
-			)
+		payload.append(
+			{
+				"notification_key": data_params["notif_str"],
+				"strategy_data": json.dumps(dataclasses.asdict(data)),
+				"reference_id": data.strategy_id,
+				"agent_id": self.agent_id,
+				"session_id": self.session_id,
+				"created_at": data.created_at,
+			}
+		)
 
 		if missing_keys > 0:
 			logger.info(
 				f"{missing_keys} StrategyData(s) with missing 'notif_str' keys are found, those are being skipped..."
 			)
 
-		response = requests.post(url, json=payload)
-		response.raise_for_status()
+		try:
+			response = requests.post(url, json=payload)
+			response.raise_for_status()
+			return response.json()
+		except requests.exceptions.HTTPError as e:
+			logger.error("HTTP Error occurred while calling the RAG API.")
 
-		r = response.json()
-
-		return r
+			try:
+				server_error_details = e.response.json()
+				logger.error(
+					f"Server responded with error details: {server_error_details}"
+				)
+			except ValueError:  # Or requests.exceptions.JSONDecodeError
+				logger.error(
+					f"Server returned a non-JSON error response: {e.response.text}"
+				)
+				raise
+		except requests.exceptions.RequestException as e:
+			logger.error(f"A request exception occurred: {e}")
+			raise
 
 	def relevant_strategy_raw(self, query: str | None) -> List[StrategyData]:
 		"""
