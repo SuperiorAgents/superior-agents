@@ -303,6 +303,11 @@ async def store_execution_result(request: Request, params: SaveResultParams):
 			data={"output": output},
 		)
 	except Exception as e:
+		logger.error(
+			"Error on `/save_result`, \n"  #
+			f"`params`: \n{params}\n"
+			f"`e`: \n{e}",
+		)
 		return JSONResponse(
 			{
 				"status": "error",
@@ -397,6 +402,15 @@ async def store_execution_result_batch_v4(params: List[SaveResultParamsV4]):
 			data={"outputs": outputs},
 		)
 	except Exception as e:
+		error_message = (
+			"Error on `/save_result_batch_v4`, \n"
+			f"`params`: \n{params}\n"
+			f"`e`: \n{e}"
+		)
+
+		# Log the detailed error message to the server's console/logs
+		logger.error(error_message, exc_info=True)  # exc_info=True adds traceback
+
 		raise HTTPException(
 			detail={
 				"status": "error",
