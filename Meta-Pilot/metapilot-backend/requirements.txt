@@ -1,0 +1,49 @@
+# Web Framework
+fastapi>=0.95.0
+uvicorn>=0.21.0
+pydantic>=1.10.7
+
+# Database
+motor>=3.1.1
+pymongo>=4.3.3
+
+# Utilities
+python-dotenv>=1.0.0
+httpx>=0.24.0
+redis>=4.5.4
+
+# Web3 Libraries
+web3>=6.0.0
+ethers>=0.0.1a1
+viem>=1.0.0
+
+# Monitoring & Logging
+logging>=0.5.1.2
+sentry-sdk>=1.25.0
+
+# API Integrations
+requests>=2.28.2
+aiohttp>=3.8.4
+
+# JSON Processing
+ujson>=5.7.0
+
+# Async
+asyncio>=3.4.3
+
+# AI/NLP
+numpy>=1.24.2
+tenacity>=8.2.2
+
+# Agent Framework
+langchain>=0.0.267  # For agent orchestration
+chroma-db>=0.4.15  # Vector database for agent memory
+sentence-transformers>=2.2.2  # For text embeddings
+faiss-cpu>=1.7.4  # For vector similarity search
+redis-om>=0.2.1  # Redis object mapping for agent memory
+
+# Testing
+pytest>=7.3.1
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+httpx>=0.24.0

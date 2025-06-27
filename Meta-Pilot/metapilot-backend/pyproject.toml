@@ -1,0 +1,108 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "metapilot"
+version = "2.0.0"
+description = "Autonomous agentic AI platform for Web3 operations"
+readme = "README.md"
+authors = [
+    {name = "MetaPilot Team", email = "info@metapilot.ai"}
+]
+license = {text = "MIT"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi>=0.95.0",
+    "uvicorn>=0.21.0",
+    "pydantic>=1.10.7",
+    "python-dotenv>=1.0.0",
+    "httpx>=0.24.0",
+    "redis>=4.5.4",
+    "motor>=3.1.1",
+    "pymongo>=4.3.3",
+    "web3>=6.0.0",
+    "sentry-sdk>=1.25.0",
+    "requests>=2.28.2",
+    "aiohttp>=3.8.4",
+    "ujson>=5.7.0",
+    "asyncio>=3.4.3",
+    "numpy>=1.24.2",
+    "tenacity>=8.2.2",
+    "langchain>=0.0.267",
+    "chroma-db>=0.4.15",
+    "sentence-transformers>=2.2.2",
+    "faiss-cpu>=1.7.4",
+    "redis-om>=0.2.1",
+    "pytest>=7.3.1",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/metapilot"
+Issues = "https://github.com/yourusername/metapilot/issues"
+Documentation = "https://github.com/yourusername/metapilot#readme"
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "isort",
+    "mypy",
+    "flake8",
+]
+web3-extra = [
+    # Optional Rust-based dependencies
+    # "ethers>=0.0.1a1",  # Requires Rust
+]
+
+[project.scripts]
+metapilot = "metapilot.api.app:start"
+
+[tool.setuptools]
+packages = ["metapilot"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+addopts = "--cov=metapilot"
+
+[tool.black]
+line-length = 88
+target-version = ["py39"]
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+[tool.coverage.run]
+source = ["metapilot"]
+omit = ["tests/*", "setup.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError",
+]
