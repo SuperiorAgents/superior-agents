@@ -1,0 +1,27 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Secrets
+.env
+
+node_modules
+
+.DS_Store
+*.DS_Store
+DS_Store*
+DS_Store
+
+agent-venv
+rest-api-venv
+rag-api-venv
+
+code/
+pkl/

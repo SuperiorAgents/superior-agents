@@ -1,0 +1,59 @@
+{
+  "name": "perp-agent",
+  "version": "1.0.0",
+  "description": "",
+  "engines": {
+    "node": ">=18.0.0 <20.0.0"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "twitter": "node twitter-cli.js",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "bin": {
+    "twitter-cli": "./twitter-cli.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@clerk/nextjs": "^6.25.4",
+    "@clerk/themes": "^2.4.3",
+    "@convex-dev/agent": "^0.1.9",
+    "@convex-dev/workflow": "^0.2.4",
+    "@openrouter/ai-sdk-provider": "^0.7.2",
+    "@radix-ui/react-checkbox": "^1.3.2",
+    "@radix-ui/react-radio-group": "^1.3.7",
+    "@radix-ui/react-scroll-area": "^1.2.9",
+    "@radix-ui/react-select": "^2.2.5",
+    "@radix-ui/react-separator": "^1.1.7",
+    "@radix-ui/react-slider": "^1.3.5",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-tabs": "^1.1.12",
+    "@radix-ui/react-toast": "^1.2.14",
+    "@tailwindcss/postcss": "^4.1.11",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "convex": "^1.25.0",
+    "dotenv": "^16.5.0",
+    "ethers": "^6.14.4",
+    "hyperliquid": "^1.7.6",
+    "lucide-react": "^0.525.0",
+    "next": "^15.4.2",
+    "next-themes": "^0.4.6",
+    "postcss": "^8.5.6",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-hook-form": "^7.61.1",
+    "tailwind-merge": "^3.3.1",
+    "tailwindcss": "^4.1.11",
+    "tw-animate-css": "^1.3.5"
+  },
+  "devDependencies": {
+    "@types/react": "19.1.8"
+  }
+}
