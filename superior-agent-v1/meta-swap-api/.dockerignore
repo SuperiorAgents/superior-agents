@@ -1,0 +1,6 @@
+**/__pycache__
+**/.env
+**/venv
+**/dist
+**/node_modules
+**/tokenDecimals.json
