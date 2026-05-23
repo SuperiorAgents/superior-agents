@@ -212,7 +212,7 @@ docker compose up -d
 ```
 
 
-## Run the agent (in a seperate tab)
+## Run the agent (in a separate tab)
 
 To run the trading/marketing bot
 
